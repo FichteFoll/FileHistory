@@ -5,17 +5,11 @@ This work is licensed under the Creative Commons Attribution-ShareAlike 3.0 Unpo
 To view a copy of this license, visit http://creativecommons.org/licenses/by-sa/3.0/
 or send a letter to Creative Commons, 171 Second Street, Suite 300, San Francisco, California, 94105, USA.
 '''
-import sublime
-import sublime_plugin
-import os
-import shutil
-import hashlib
-import json
 
-# Plugin to provide access to the history of accessed files:
-# https://gist.github.com/1133602
+# A plugin to provide access to the history of accessed files - project-wise or globally
+# Mirrored from: https://gist.github.com/1133602
 #
-# The plugin stores a JSON file with the file history.
+# Stores a JSON file with the file history.
 #
 # Note: I tried checking for file existence in the history but this
 # took more time than expected (especially with networked files) and
@@ -28,13 +22,22 @@ import json
 # view.run_command("open_recently_closed_file")
 #
 # Keymap entries:
-# { "keys": ["ctrl+shift+t"], "command": "open_recently_closed_file"},
-# { "keys": ["ctrl+alt+shift+t"], "command": "open_recently_closed_file", "args": {"show_quick_panel": false}  },
-# { "keys": ["ctrl+alt+shift+t"], "command": "open_recently_closed_file", "args": {"current_project_only": false}  },
-# { "keys": ["ctrl+alt+shift+c"], "command": "cleanup_file_history", "args": {"current_project_only": false}  },
+# { "keys": ["ctrl+shift+t"],     "command": "open_recently_closed_file", "args": {"show_quick_panel": false} },
+# { "keys": ["ctrl+alt+shift+t"], "command": "open_recently_closed_file" },
+# { "keys": ["super+ctrl+t"],     "command": "open_recently_closed_file", "args": {"current_project_only": false} },
+# { "keys": ["ctrl+alt+shift+c"], "command": "cleanup_file_history",      "args": {"current_project_only": false} }
 #
+# TODO readme
+# TODO some restructuring
+# TODO introduce a settings file to get settings from
 # TODO use api function (not yet available) to get the project name/id (rather than using a hash of the project folders)
-# TODO Get the settings below from a sublime-settings file?
+
+import sublime
+import sublime_plugin
+import os
+import shutil
+import hashlib
+import json
 
 # Maximum number of history entries we should keep (older entries truncated)
 GLOBAL_MAX_ENTRIES  = 50
@@ -62,8 +65,8 @@ def log(text):
 
 # Class to read and write the file-access history.
 class FileHistory(object):
-
     """Class to manage the file-access history"""
+
     def __init__(self):
         self.history_file = os.path.join(sublime.packages_path(), 'User', 'FileHistory.json')
         self.old_history_file = os.path.join(sublime.packages_path(), 'User', 'FileHistory.sublime-settings')
@@ -115,6 +118,7 @@ class FileHistory(object):
 
     def get_history(self, current_project_only=True):
         """Return the requested history (global or project-specific): opened files followed by closed files"""
+
         # Make sure the history is loaded
         if len(self.history) == 0:
             self.__load_history()
