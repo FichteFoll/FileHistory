@@ -5,7 +5,8 @@ This work is licensed under the Creative Commons Attribution-ShareAlike 3.0 Unpo
 To view a copy of this license, visit http://creativecommons.org/licenses/by-sa/3.0/
 or send a letter to Creative Commons, 171 Second Street, Suite 300, San Francisco, California, 94105, USA.
 '''
-import sublime, sublime_plugin
+import sublime
+import sublime_plugin
 import os
 import shutil
 import hashlib
@@ -36,8 +37,8 @@ import json
 # TODO Get the settings below from a sublime-settings file?
 
 # Maximum number of history entries we should keep (older entries truncated)
-GLOBAL_MAX_ENTRIES=100
-PROJECT_MAX_ENTRIES=50
+GLOBAL_MAX_ENTRIES  = 50
+PROJECT_MAX_ENTRIES = 20
 
 # Which position to open a file at when the saved index in no longer valid
 # (e.g. after a migration or if the saved index is non-existent).
@@ -48,13 +49,16 @@ DEFAULT_NEW_TAB_POSITION = TAB_POSITION_LAST
 # Print out the debug text?
 PRINT_DEBUG = False
 
+
 # Helper methods for "logging" to the console.
 def debug(text):
     if PRINT_DEBUG:
         log(text)
 
+
 def log(text):
     print '[%s] %s' % ('FileHistory', text)
+
 
 # Class to read and write the file-access history.
 class FileHistory(object):
@@ -99,7 +103,6 @@ class FileHistory(object):
             self.__migrate_history(updated_history)
         else:
             self.history = updated_history
-
 
     def __save_history(self):
         debug('Saving the history to file ' + self.history_file)
@@ -150,7 +153,7 @@ class FileHistory(object):
                 self.__ensure_project(project_name)
 
                 # Add the file to the end of the opened/closed list
-                node = {'filename':filename, 'group':-1, 'index':-1}
+                node = {'filename': filename, 'group': -1, 'index': -1}
                 self.history[project_name][history_type].append(node)
 
         self.__save_history()
@@ -191,7 +194,7 @@ class FileHistory(object):
         # Remove the file from the project list then
         # add it to the top (of the opened/closed list)
         self.__remove(project_name, filename)
-        node = {'filename':filename, 'group':group, 'index':index}
+        node = {'filename': filename, 'group': group, 'index': index}
         self.history[project_name][history_type].insert(0, node)
 
         # Make sure we limit the number of history entries
@@ -225,6 +228,7 @@ class FileHistory(object):
 
 # Global file history instance
 hist = FileHistory()
+
 
 class OpenRecentlyClosedFileEvent(sublime_plugin.EventListener):
     """class to keep a history of the files that have been opened and closed"""
