@@ -6,30 +6,9 @@ To view a copy of this license, visit http://creativecommons.org/licenses/by-sa/
 or send a letter to Creative Commons, 171 Second Street, Suite 300, San Francisco, California, 94105, USA.
 '''
 
-# A plugin to provide access to the history of accessed files - project-wise or globally
-# Mirrored from: https://gist.github.com/1133602
-#
-# Stores a JSON file with the file history.
-#
-# Note: I tried checking for file existence in the history but this
-# took more time than expected (especially with networked files) and
-# made the plugin quite unresponsive.  The compromise is a command
-# to cleanup the current project (with the option to clean up the
-# global list as well).  The cleanup will remove any files in the
-# project history that don't exist.
-#
-# To run the plugin:
-# view.run_command("open_recently_closed_file")
-#
-# Keymap entries:
-# { "keys": ["ctrl+shift+t"],     "command": "open_recently_closed_file", "args": {"show_quick_panel": false} },
-# { "keys": ["ctrl+alt+shift+t"], "command": "open_recently_closed_file" },
-# { "keys": ["super+ctrl+t"],     "command": "open_recently_closed_file", "args": {"current_project_only": false} },
-# { "keys": ["ctrl+alt+shift+c"], "command": "cleanup_file_history",      "args": {"current_project_only": false} }
-#
-# TODO readme
 # TODO some restructuring
 # TODO introduce a settings file to get settings from
+# TODO option to cleanup the history database (json) on start
 # TODO use api function (not yet available) to get the project name/id (rather than using a hash of the project folders)
 
 import sublime
