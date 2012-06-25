@@ -1,7 +1,8 @@
 # SublimeText - File History #
 
 A plugin to provide access to the history of accessed files - project-wise or globally. Stores a JSON file with the file history.
-Mirrored from: [https://gist.github.com/1133602][gist] by Josh Bjornson
+
+Obtained from [https://gist.github.com/1133602][gist] by Josh Bjornson
 
 
 **Note**: I tried checking for file existence in the history but this took more time than expected (especially with networked files) and made the plugin quite unresponsive. The compromise is a command to cleanup the current project (with the option to clean up the global list as well). The cleanup will remove any files in the project history that don't exist.
