@@ -1,8 +1,9 @@
 # SublimeText - File History #
 
 A plugin to provide access to the history of accessed files - project-wise or globally. Stores a JSON file with the file history.
+**Sublime Text 3 compatible**.
 
-Obtained from [https://gist.github.com/1133602][gist] by Josh Bjornson
+Obtained from [https://gist.github.com/1133602][gist] by Josh Bjornson.
 
 
 **Note**: I tried checking for file existence in the history but this took more time than expected (especially with networked files) and made the plugin quite unresponsive. The compromise is a command to cleanup the current project (with the option to clean up the global list as well). The cleanup will remove any files in the project history that don't exist.
@@ -18,7 +19,7 @@ Obtained from [https://gist.github.com/1133602][gist] by Josh Bjornson
     git clone git://github.com/FichteFoll/sublimetext-filehistory.git
 
 
-The "Packages" directory is located at:
+The "Packages" directory (for ST2) is located at:
 
 * Linux: `~/.config/sublime-text-2/Packages/`
 * OS X: `~/Library/Application Support/Sublime Text 2/Packages/`
@@ -73,16 +74,16 @@ Checks the current project or the whole history for non-existent files and remov
 
 - A settings file (and using the information from there)
 - Option to cleanup when starting Sublime
-- Use an API function (not yet available) to get the project's name/id
+- Use an API function (not yet available) to get the project's name/id (ST3)
 
 
 [gist]: https://gist.github.com/1133602
-[github]: https://github.com/FichteFoll/sublimetext-filehistory "Github.com: FichteFoll/sublime-filhistory"
+[github]: https://github.com/FichteFoll/sublimetext-filehistory "Github.com: FichteFoll/sublime-filehistory"
 [zipball]: https://github.com/FichteFoll/sublimetext-filehistory/zipball/master
 [pck-ctrl]: http://wbond.net/sublime_packages/package_control "Sublime Package Control by wbond"
 
-[keymap]: https://github.com/FichteFoll/sublimetext-filehistory/blob/master/Default.sublime-keymap "Default.sublime-keymap"
-[keymap-osx]: https://github.com/FichteFoll/sublimetext-filehistory/blob/master/Default%20%28OSX%29.sublime-keymap "Default (OSX).sublime-keymap"
+[keymap]: Default.sublime-keymap "Default.sublime-keymap"
+[keymap-osx]: Default%20%28OSX%29.sublime-keymap "Default (OSX).sublime-keymap"
 
 [img1]: http://i.imgur.com/6eB4c.png
 [img2]: http://i.imgur.com/MzCQH.png
