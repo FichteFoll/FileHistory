@@ -14,7 +14,6 @@ or send a letter to Creative Commons, 171 Second Street, Suite 300, San Francisc
 import sublime
 import sublime_plugin
 import os
-import shutil
 import hashlib
 import json
 
@@ -49,24 +48,15 @@ class FileHistory(object):
     """Basic singleton implementation"""
     @classmethod
     def instance(cls):
-        if not FileHistory._instance:
-            FileHistory._instance = FileHistory()
-        return FileHistory._instance
+        if not cls._instance:
+            cls._instance = cls()
+        return cls._instance
 
     """Class to manage the file-access history"""
     def __init__(self):
         self.history_file = os.path.join(sublime.packages_path(), 'User', 'FileHistory.json')
-        self.old_history_file = os.path.join(sublime.packages_path(), 'User', 'FileHistory.sublime-settings')
-        self.archive_file = os.path.join(sublime.packages_path(), 'User', 'FileHistory.archive')
-
-        # Copy over the old settings for migration (if new settings don't yet exist)
-        # and rename the old settings file.
-        if os.path.exists(self.old_history_file) and not os.path.exists(self.history_file):
-            shutil.copyfile(self.old_history_file, self.history_file)
-            shutil.move(self.old_history_file, self.archive_file)
 
         self.history = {}
-
         self.__load_history()
 
     def get_current_project_hash(self):
