@@ -256,7 +256,10 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
             # Get the alternative tab index (in case the saved index in no longer valid):
             # The file could be opened in the last tab (max_index) or after the current tab (next_index)...
             max_index = len(self.window.views_in_group(group))
-            next_index = self.window.get_view_index(self.window.active_view_in_group(group))[1] + 1
+            if max_index:
+                next_index = self.window.get_view_index(self.window.active_view_in_group(group))[1] + 1
+            else:
+                next_index = 0
 
             # Get the index of the new view
             index = node['index']
