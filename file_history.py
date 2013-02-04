@@ -39,13 +39,21 @@ def debug(text):
 
 
 def log(text):
-    print '[%s] %s' % ('FileHistory', text)
+    print('[%s] %s' % ('FileHistory', text))
 
 
 # Class to read and write the file-access history.
 class FileHistory(object):
-    """Class to manage the file-access history"""
+    _instance = None
 
+    """Basic singleton implementation"""
+    @classmethod
+    def instance(cls):
+        if not FileHistory._instance:
+            FileHistory._instance = FileHistory()
+        return FileHistory._instance
+
+    """Class to manage the file-access history"""
     def __init__(self):
         self.history_file = os.path.join(sublime.packages_path(), 'User', 'FileHistory.json')
         self.old_history_file = os.path.join(sublime.packages_path(), 'User', 'FileHistory.sublime-settings')
@@ -209,28 +217,25 @@ class FileHistory(object):
         self.__save_history()
 
 
-# Global file history instance
-hist = FileHistory()
-
-
 class OpenRecentlyClosedFileEvent(sublime_plugin.EventListener):
     """class to keep a history of the files that have been opened and closed"""
 
     def on_close(self, view):
-        hist.add_view(view, 'closed')
+        FileHistory.instance().add_view(view, 'closed')
 
     def on_load(self, view):
-        hist.add_view(view, 'opened')
+        FileHistory.instance().add_view(view, 'opened')
 
 
 class CleanupFileHistoryCommand(sublime_plugin.WindowCommand):
     def run(self, current_project_only=True):
         # Cleanup the current project
-        hist.clean_history(hist.get_current_project_hash())
+        FileHistory.instance().clean_history(hist.get_current_project_hash())
 
         # If requested, also cleanup the global history
         if not current_project_only:
-            hist.clean_history('global')
+            FileHistory.instance().clean_history('global')
+
 
 
 class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
@@ -238,7 +243,7 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
 
     def run(self, show_quick_panel=True, current_project_only=True):
         # Prepare the display list with the file name and path separated
-        self.history_list = hist.get_history(current_project_only)
+        self.history_list = FileHistory.instance().get_history(current_project_only)
         display_list = []
         for node in self.history_list:
             file_path = node['filename']
