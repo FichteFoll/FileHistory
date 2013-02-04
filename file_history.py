@@ -230,12 +230,12 @@ class OpenRecentlyClosedFileEvent(sublime_plugin.EventListener):
 class CleanupFileHistoryCommand(sublime_plugin.WindowCommand):
     def run(self, current_project_only=True):
         # Cleanup the current project
-        FileHistory.instance().clean_history(hist.get_current_project_hash())
+        h = FileHistory.instance()
+        h.clean_history(h.get_current_project_hash())
 
         # If requested, also cleanup the global history
         if not current_project_only:
-            FileHistory.instance().clean_history('global')
-
+            h.clean_history('global')
 
 
 class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
