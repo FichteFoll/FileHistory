@@ -63,8 +63,22 @@ class FileHistory(object):
         m = hashlib.md5()
         for path in sublime.active_window().folders():
             m.update(path.encode('utf-8'))
-        return m.hexdigest()
+        project_key = m.hexdigest()
 
+        # Try to use project_file_name (available in ST3 build 3014)
+        if hasattr(sublime.active_window(), 'project_file_name'):
+            project_filename = sublime.active_window().project_file_name()
+
+            # migrate the old history entry (if it exists)
+            if project_key in self.history:
+                self.history[project_filename] = self.history[project_key]
+                del(self.history[project_key])
+
+            # use the new project key
+            project_key = project_filename
+
+        return project_key
+        
     def __load_history(self):
         debug('Loading the history from file ' + self.history_file)
         if not os.path.exists(self.history_file):
