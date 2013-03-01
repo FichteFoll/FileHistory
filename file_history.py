@@ -9,7 +9,7 @@ or send a letter to Creative Commons, 171 Second Street, Suite 300, San Francisc
 # TODO some restructuring
 # TODO introduce a settings file to get settings from
 # TODO option to cleanup the history database (json) on start
-# TODO use api function (not yet available) to get the project name/id (rather than using a hash of the project folders)
+# TODO use api function (implemented in ST3) to get the project name/id (rather than using a hash of the project folders)
 
 import sublime
 import sublime_plugin
@@ -76,13 +76,7 @@ class FileHistory(object):
         finally:
             f.close()
 
-        # If this is in the old format, then migrate (the new format has a
-        # 'global' file list rather than top level 'opened' and 'closed' lists)
-        if 'opened' in updated_history:
-            log('History is in the old format and will be migrated')
-            self.__migrate_history(updated_history)
-        else:
-            self.history = updated_history
+        self.history = updated_history
 
     def __save_history(self):
         debug('Saving the history to file ' + self.history_file)
@@ -112,32 +106,6 @@ class FileHistory(object):
         else:
             debug('WARN: Project %s could not be found in the file history list - returning an empty history list' % (project_name))
             return []
-
-    def __migrate_history(self, archive):
-        # Reset the history
-        self.history = {}
-
-        # Migrate the existing history to the new format
-        for node_name in iter(archive):
-            # Get the project name and history type (opened or closed) for this history entry
-            if node_name in ('opened', 'closed'):
-                project_name = 'global'
-                history_type = node_name
-            else:
-                (project_name, history_type) = node_name.split('_', 1)
-
-            # Migrate all of the history entries for this project to the new format
-            for filename in iter(archive[node_name]):
-                debug('Migrating %s file %s in project %s...' % (history_type, filename, project_name))
-
-                # Make sure the project nodes exist
-                self.__ensure_project(project_name)
-
-                # Add the file to the end of the opened/closed list
-                node = {'filename': filename, 'group': -1, 'index': -1}
-                self.history[project_name][history_type].append(node)
-
-        self.__save_history()
 
     def __ensure_project(self, project_name):
         """Make sure the project nodes exist (including 'opened' and 'closed')"""
