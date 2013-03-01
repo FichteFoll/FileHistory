@@ -62,7 +62,7 @@ class FileHistory(object):
     def get_current_project_hash(self):
         m = hashlib.md5()
         for path in sublime.active_window().folders():
-            m.update(path)
+            m.update(path.encode('utf-8'))
         return m.hexdigest()
 
     def __load_history(self):
