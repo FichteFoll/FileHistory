@@ -68,6 +68,8 @@ class FileHistory(object):
         # Try to use project_file_name (available in ST3 build 3014)
         if hasattr(sublime.active_window(), 'project_file_name'):
             project_filename = sublime.active_window().project_file_name()
+            if not project_filename:
+                return project_key
 
             # migrate the old history entry (if it exists)
             if project_key in self.history:
@@ -78,7 +80,7 @@ class FileHistory(object):
             project_key = project_filename
 
         return project_key
-        
+
     def __load_history(self):
         debug('Loading the history from file ' + self.history_file)
         if not os.path.exists(self.history_file):
