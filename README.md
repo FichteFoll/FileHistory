@@ -36,7 +36,7 @@ into the console (`` Ctrl-` ``).
 
 To run the plugin, enter the following into the console:
 ```python
-view.run_command("open_recently_closed_file")
+window.run_command("open_recently_closed_file")
 ```
 
 For default keymap definitions, see [Default.sublime-keymap][keymap] ([OSX][keymap-osx]).
@@ -51,7 +51,7 @@ For default keymap definitions, see [Default.sublime-keymap][keymap] ([OSX][keym
 
 ### Commands ###
 
-**open_recently_closed_file**
+**open_recently_closed_file** (Window)
 
 Opens a popup with recently closed files or reopens the lastly closed view if `show_quick_panel == False`.
 
@@ -61,7 +61,7 @@ Opens a popup with recently closed files or reopens the lastly closed view if `s
 
 >	- **current_project_only** (bool) - *Default*: `True`
 
-**cleanup_file_history**
+**cleanup_file_history** (Window)
 
 Checks the current project or the whole history for non-existent files and removes them from the history kept.
 
