@@ -1,6 +1,12 @@
 File History Changelog
 ======================
 
+development (-----)
+-------------------
+
+- Add some status messages for cleanup command
+
+
 v1.3.1 (2013-03-01)
 -------------------
 

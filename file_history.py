@@ -180,6 +180,7 @@ class FileHistory(object):
     def clean_history(self, project_name):
         # Only continue if this project exists
         if project_name not in self.history:
+            sublime.status_message("This project does not have any history")
             return
 
         # Remove any non-existent files from the project
@@ -189,6 +190,7 @@ class FileHistory(object):
                     self.history[project_name][history_type].remove(node)
 
         self.__save_history()
+        sublime.status_message("File history cleaned")
 
 
 class OpenRecentlyClosedFileEvent(sublime_plugin.EventListener):
