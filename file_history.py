@@ -9,7 +9,7 @@ or send a letter to Creative Commons, 171 Second Street, Suite 300, San Francisc
 # TODO some restructuring
 # TODO introduce a settings file to get settings from
 # TODO option to cleanup the history database (json) on start
-# TODO use api function (implemented in ST3) to get the project name/id (rather than using a hash of the project folders)
+# DONE use api function (implemented in ST3) to get the project name/id (rather than using a hash of the project folders)
 
 import sublime
 import sublime_plugin
@@ -30,6 +30,8 @@ DEFAULT_NEW_TAB_POSITION = TAB_POSITION_LAST
 # Print out the debug text?
 PRINT_DEBUG = False
 
+# Should we show a preview of the history entries?
+SHOW_FILE_PREVIEW=True
 
 # Helper methods for "logging" to the console.
 def debug(text):
@@ -59,13 +61,16 @@ class FileHistory(object):
         self.history = {}
         self.__load_history()
 
-    def get_current_project_hash(self):
+        self.calling_view = None
+
+    def get_current_project_key(self):
         m = hashlib.md5()
         for path in sublime.active_window().folders():
             m.update(path.encode('utf-8'))
         project_key = m.hexdigest()
 
         # Try to use project_file_name (available in ST3 build 3014)
+        # Note: Although it would be more appropriate, the name of the workspace is not available
         if hasattr(sublime.active_window(), 'project_file_name'):
             project_filename = sublime.active_window().project_file_name()
             if not project_filename:
@@ -112,7 +117,7 @@ class FileHistory(object):
 
         # Load the requested history (global or project-specific)
         if current_project_only:
-            project_name = self.get_current_project_hash()
+            project_name = self.get_current_project_key()
         else:
             project_name = 'global'
 
@@ -135,7 +140,7 @@ class FileHistory(object):
         filename = os.path.normpath(view.file_name()) if view.file_name() else None
         # Only keep track of files that exist (that have already been saved)
         if filename != None:
-            project_name = self.get_current_project_hash()
+            project_name = self.get_current_project_key()
             (group, index) = sublime.active_window().get_view_index(view)
 
             if os.path.exists(filename):
@@ -159,7 +164,7 @@ class FileHistory(object):
         # Remove the file from the project list then
         # add it to the top (of the opened/closed list)
         self.__remove(project_name, filename)
-        node = {'filename': filename, 'group': group, 'index': index}
+        node = {'filename':filename, 'group':group, 'index':index}
         self.history[project_name][history_type].insert(0, node)
 
         # Make sure we limit the number of history entries
@@ -187,6 +192,7 @@ class FileHistory(object):
         for history_type in ('opened', 'closed'):
             for node in reversed(self.history[project_name][history_type]):
                 if not os.path.exists(node['filename']):
+                    debug('Removing non-existent file from the project: %s' % (node['filename']))
                     self.history[project_name][history_type].remove(node)
 
         self.__save_history()
@@ -200,14 +206,23 @@ class OpenRecentlyClosedFileEvent(sublime_plugin.EventListener):
         FileHistory.instance().add_view(view, 'closed')
 
     def on_load(self, view):
-        FileHistory.instance().add_view(view, 'opened')
+        window = sublime.active_window()
+
+        # If this view is being previewed (transient), then don't trigger the file history event
+        add_to_history = True
+        if hasattr(window, 'transient_view_in_group'):
+            if view == window.transient_view_in_group(window.active_group()):
+                add_to_history = False
+
+        if add_to_history:
+            FileHistory.instance().add_view(view, 'opened')
 
 
 class CleanupFileHistoryCommand(sublime_plugin.WindowCommand):
     def run(self, current_project_only=True):
         # Cleanup the current project
         h = FileHistory.instance()
-        h.clean_history(h.get_current_project_hash())
+        h.clean_history(h.get_current_project_key())
 
         # If requested, also cleanup the global history
         if not current_project_only:
@@ -218,6 +233,11 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
     """class to either open the last closed file or show a quick panel with the recent file history (closed files first)"""
 
     def run(self, show_quick_panel=True, current_project_only=True):
+        # Remember the view that the command was run from (aka the "calling" view), so:
+        # (1) we can return to the "calling" view if the user cancels
+        # (2) we can show something if a file in the history no longer exists
+        FileHistory.instance().calling_view = sublime.active_window().active_view()
+
         # Prepare the display list with the file name and path separated
         self.history_list = FileHistory.instance().get_history(current_project_only)
         display_list = []
@@ -226,15 +246,37 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
             display_list.append([os.path.basename(file_path), os.path.dirname(file_path)])
 
         if show_quick_panel:
-            self.window.show_quick_panel(display_list, self.open_file, True)
+            # The new ST3 API supports an "on_highlight" function in the "show_quick_panel" call
+            if int(sublime.version()) >= 3000:
+                self.window.show_quick_panel(display_list, self.open_file, on_highlight=self.show_preview)
+            else:
+                self.window.show_quick_panel(display_list, self.open_file)
         else:
             self.open_file(0)
 
+
+    def is_valid(self, selected_index):
+        return selected_index >= 0 and selected_index < len(self.history_list)
+
+
+    # Note: This function will never be called in ST2
+    def show_preview(self, selected_index):
+        if not SHOW_FILE_PREVIEW:
+            return
+        if self.is_valid(selected_index):
+            # Preview the file if it exists, otherwise show the previous view (aka the "calling_view")
+            node = self.history_list[selected_index]
+            if os.path.exists(node['filename']):
+                self.window.open_file(node['filename'], sublime.TRANSIENT)
+            else:
+                sublime.active_window().focus_view( FileHistory.instance().calling_view )
+
+
     def open_file(self, selected_index):
-        if selected_index >= 0 and selected_index < len(self.history_list):
+        if self.is_valid(selected_index):
             node = self.history_list[selected_index]
 
-            # Get the group of the new view (default is the currently active group)
+            # Get the group of the new view (the currently active group is the default)
             group = node['group']
             if group < 0 or group >= self.window.num_groups():
                 group = self.window.active_group()
@@ -243,7 +285,7 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
             # The file could be opened in the last tab (max_index) or after the current tab (next_index)...
             max_index = len(self.window.views_in_group(group))
             if max_index:
-                next_index = self.window.get_view_index(self.window.active_view_in_group(group))[1] + 1
+            	next_index = self.window.get_view_index(self.window.active_view_in_group(group))[1] + 1
             else:
                 next_index = 0
 
@@ -257,3 +299,10 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
             # Open the file and position the view correctly
             new_view = self.window.open_file(node['filename'])
             self.window.set_view_index(new_view, group, index)
+
+            # Add the file we just opened to the FileHistory
+            FileHistory.instance().add_view(new_view, 'opened')
+        else:
+            # The user cancelled the action - give the focus back to the "calling" view
+            sublime.active_window().focus_view( FileHistory.instance().calling_view )
+            FileHistory.instance().calling_view = None
