@@ -4,7 +4,7 @@ File History Changelog
 v1.3.2 (2013-11-11)
 -------------------
 
-- The files are now previewed when cycling through the quick panel entries.  This only works in ST3 but
+- The files are now previewed when cycling through the quick panel entries (ST3 only).  The plugin is still ST2 compliant.
 
 
 development (-----)
