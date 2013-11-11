@@ -31,7 +31,7 @@ DEFAULT_NEW_TAB_POSITION = TAB_POSITION_LAST
 PRINT_DEBUG = False
 
 # Should we show a preview of the history entries?
-SHOW_FILE_PREVIEW=True
+SHOW_FILE_PREVIEW = True
 
 # Helper methods for "logging" to the console.
 def debug(text):
@@ -164,7 +164,7 @@ class FileHistory(object):
         # Remove the file from the project list then
         # add it to the top (of the opened/closed list)
         self.__remove(project_name, filename)
-        node = {'filename':filename, 'group':group, 'index':index}
+        node = {'filename': filename, 'group':group, 'index':index}
         self.history[project_name][history_type].insert(0, node)
 
         # Make sure we limit the number of history entries
@@ -285,7 +285,7 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
             # The file could be opened in the last tab (max_index) or after the current tab (next_index)...
             max_index = len(self.window.views_in_group(group))
             if max_index:
-            	next_index = self.window.get_view_index(self.window.active_view_in_group(group))[1] + 1
+                next_index = self.window.get_view_index(self.window.active_view_in_group(group))[1] + 1
             else:
                 next_index = 0
 
