@@ -1,11 +1,16 @@
 File History Changelog
 ======================
 
+v1.3.2 (2013-11-11)
+-------------------
+
+- The files are now previewed when cycling through the quick panel entries.  This only works in ST3 but
+
+
 development (-----)
 -------------------
 
 - Add some status messages for cleanup command
-
 
 v1.3.1 (2013-03-01)
 -------------------
