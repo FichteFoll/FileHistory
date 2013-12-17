@@ -1,6 +1,5 @@
 [
 	{ "keys": ["super+shift+t"],     "command": "open_recently_closed_file", "args": {"show_quick_panel": false} },
 	{ "keys": ["super+alt+t"],       "command": "open_recently_closed_file" },
-	{ "keys": ["super+alt+shift+t"], "command": "open_recently_closed_file", "args": {"current_project_only": false} },
-	{ "keys": ["super+alt+shift+c"], "command": "cleanup_file_history",      "args": {"current_project_only": false} }
+	{ "keys": ["super+alt+shift+t"], "command": "open_recently_closed_file", "args": {"current_project_only": false} }
 ]
