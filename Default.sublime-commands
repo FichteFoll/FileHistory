@@ -1,0 +1,25 @@
+[
+    {
+        "caption": "File History: Current Project: Open recently closed file",
+        "command": "open_recently_closed_file",
+        "args": {
+            "show_quick_panel": true,
+            "current_project_only": true
+        }
+    },
+    {
+        "caption": "File History: All Projects: Open recently closed file",
+        "command": "open_recently_closed_file",
+        "args": {
+            "show_quick_panel": true,
+            "current_project_only": false
+        }
+    },
+    {
+        "caption": "File History: Cleanup file history",
+        "command": "cleanup_file_history",
+        "args": {
+            "current_project_only": false
+        }
+    }
+]
