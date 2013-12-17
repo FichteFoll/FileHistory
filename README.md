@@ -1,12 +1,12 @@
 # SublimeText - File History #
 
-A plugin to provide access to the history of accessed files - project-wise or globally. Stores a JSON file with the file history.
-**Sublime Text 3 compatible**.
+**Sublime Text 2 and 3** plugin to provide access to the history of accessed files - project-wise or globally. Stores data in a JSON file.
 
-Obtained from [https://gist.github.com/1133602][gist] by Josh Bjornson.
+Obtained from a [https://gist.github.com/1133602][gist] by Josh Bjornson.
 
 
 **Note**: I tried checking for file existence in the history but this took more time than expected (especially with networked files) and made the plugin quite unresponsive. The compromise is a command to cleanup the current project (with the option to clean up the global list as well). The cleanup will remove any files in the project history that don't exist.
+
 
 ## Installation ##
 
@@ -34,10 +34,7 @@ into the console (`` Ctrl-` ``).
 
 ## Usage ##
 
-To run the plugin, enter the following into the console:
-```python
-window.run_command("open_recently_closed_file")
-```
+To use the plugin, open the Command Palette and search for `File History:`.
 
 For default keymap definitions, see [Default.sublime-keymap][keymap] ([OSX][keymap-osx]).
 
@@ -72,9 +69,8 @@ Checks the current project or the whole history for non-existent files and remov
 
 ## ToDo ##
 
-- A settings file (and using the information from there)
-- Option to cleanup when starting Sublime
-- Use an API function (not yet available) to get the project's name/id (ST3)
+- A settings file (and using the information from there) (#7)
+- Option to cleanup when starting Sublime (#7)
 
 
 [gist]: https://gist.github.com/1133602
