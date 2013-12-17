@@ -1,16 +1,19 @@
 File History Changelog
 ======================
 
+
+v1.3.3 (2013-12-17)
+-------------------
+
+- Added commands to the command palette and removed cleanup command from keybindings (by @stdword)
+
+
 v1.3.2 (2013-11-11)
 -------------------
 
-- The files are now previewed when cycling through the quick panel entries (ST3 only).  The plugin is still ST2 compliant.
-
-
-development (-----)
--------------------
-
+- ST3 only: The files are now previewed when cycling through the quick panel entries
 - Add some status messages for cleanup command
+
 
 v1.3.1 (2013-03-01)
 -------------------
@@ -30,12 +33,12 @@ v1.3.0 (2013-02-04)
 
 
 v1.1 (2012-06-14)
--------------------
+-----------------
 
 - Add key bindings and menu entries
 
 
 v1.0 (2012-05-18)
--------------------
+-----------------
 
 - Mirrored from [gist](https://gist.github.com/1133602) with most of their functionality

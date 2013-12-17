@@ -9,15 +9,15 @@ Obtained from https://gist.github.com/1133602 by Josh Bjornson.
 
 **Note**: I tried checking for file existence in the history but this took more time than expected (especially with networked files) and made the plugin quite unresponsive. The compromise is a command to cleanup the current project (with the option to clean up the global list as well). The cleanup will remove any files in the project history that don't exist.
 
-For a changelog, see `CHANGELOG.md`.
+For a changelog, see CHANGELOG.md.
 
 Usage
 -----
 
-To view the default keymap definitions, browse "Preferences > Package Settings > File History > Key Bindings - Default" in the menu.
+To use the plugin, open the Command Palette and search for `File History:`. You can see the default key bindings in the palette, or alternatively browse "Preferences > Package Settings > File History > Key Bindings - Default" in the menu.
 
 
 More Information
 ----------------
 
-View more information like images or the exact commands and parameters on the github page: https://github.com/FichteFoll/sublimetext-filehistory
+View more information like images or the exact commands and parameters on the github page: https://github.com/FichteFoll/sublimetext-filehistory (or in README.md).
