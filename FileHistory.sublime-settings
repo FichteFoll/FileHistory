@@ -1,0 +1,27 @@
+{
+    // Path to store the history entries in (relative to the sublime packages path)
+    // Default value is:  "User/FileHistory.json"
+    "history_file": "User/FileHistory.json",
+
+    // Maximum number of history entries we should keep (older entries truncated)
+    "global_max_entries": 100,
+
+    // Maximum number of history entries we should keep (older entries truncated)
+    "project_max_entries": 50,
+
+    // Try to use the saved position of the file or blindly use the "new_tab_position" setting
+    "use_saved_position": true,
+
+    // Which position to open a file at when the saved index in no longer valid
+    // "next", "first", "last"
+    "new_tab_position": "next",
+
+    // Should we show a preview of the history entries?
+    "show_file_preview": true,
+
+    // Remove any non-existent files from the history (when previewed or opened)
+    "remove_non_existent_files_on_preview": false,
+
+    // Print out the debug text?
+    "debug": false
+}
