@@ -37,6 +37,10 @@ class FileHistory(object):
         self.__load_history()
         self.__clear_context()
 
+        if self.CLEANUP_ON_STARTUP:
+            sublime.set_timeout_async(lambda: self.clean_history(False) , 0)
+
+
     def __load_settings(self):
         """Load the plugin settings from FileHistory.sublime-settings"""
         settings = sublime.load_settings('FileHistory.sublime-settings')
@@ -47,6 +51,7 @@ class FileHistory(object):
         self.NEW_TAB_POSITION = self.__get_setting(settings, 'new_tab_position', 'next')
         self.SHOW_FILE_PREVIEW = self.__get_setting(settings, 'show_file_preview', True)
         self.REMOVE_NON_EXISTENT_FILES = self.__get_setting(settings, 'remove_non_existent_files_on_preview', True)
+        self.CLEANUP_ON_STARTUP = self.__get_setting(settings, 'cleanup_on_startup', True)
 
         history_path = self.__get_setting(settings, 'history_file', 'User/FileHistory.json')
         self.HISTORY_FILE = os.path.normpath(os.path.join(sublime.packages_path(), history_path))
@@ -167,7 +172,7 @@ class FileHistory(object):
                 self.__save_history()
 
     def __add_to_history(self, project_name, history_type, filename, group, index):
-        self.debug('Adding %s file to project %s with group %s and index %s: %s' % (history_type, project_name, group, index, filename))
+        self.debug('Adding %s file to project "%s" with group %s and index %s: %s' % (history_type, project_name, group, index, filename))
 
         # Make sure the project nodes exist
         self.__ensure_project(project_name)
@@ -211,7 +216,7 @@ class FileHistory(object):
         for history_type in ('opened', 'closed'):
             for node in reversed(self.history[project_name][history_type]):
                 if not os.path.exists(node['filename']):
-                    self.debug('Removing non-existent file from the project: %s' % (node['filename']))
+                    self.debug('Removing non-existent file from project "%s": %s' % (project_name, node['filename']))
                     self.history[project_name][history_type].remove(node)
 
         self.__save_history()
@@ -315,7 +320,7 @@ class OpenRecentlyClosedFileEvent(sublime_plugin.EventListener):
         if FileHistory.instance().is_preview_view(view): return
 
         # Need to remember the position because it is longer available via the API when the file is being closed
-        (group, index) = view.window().get_view_index(view)
+        (group, index) = sublime.active_window().get_view_index(view)
         view.settings().set('FileViewer.group', group)
         view.settings().set('FileViewer.index', index)
 
