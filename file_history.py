@@ -1,3 +1,17 @@
+'''
+@author Josh Bjornson
+
+This work is licensed under the Creative Commons Attribution-ShareAlike 3.0 Unported License.
+To view a copy of this license, visit http://creativecommons.org/licenses/by-sa/3.0/
+or send a letter to Creative Commons, 171 Second Street, Suite 300, San Francisco, California, 94105, USA.
+'''
+
+# TODO some restructuring
+# TODO option to cleanup the history database (json) on start
+# TODO The correct position will not be recorded in the case when a file is opened but not yet activated.
+#      This can happen when a file is re-opened from history (without preview) then repositioned and closed (but never activated).
+# DONE introduce a settings file to get settings from
+# DONE use api function (implemented in ST3) to get the project name/id (rather than using a hash of the project folders)
 import sublime
 import sublime_plugin
 import os
