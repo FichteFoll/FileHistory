@@ -392,7 +392,6 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
             if is_ST2:
                 self.window.show_quick_panel(display_list, self.open_file)
             else:
-                # flags=sublime.MONOSPACE_FONT,
                 self.window.show_quick_panel(display_list, self.open_file, on_highlight=self.show_preview)
         else:
             self.open_file(0)
