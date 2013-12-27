@@ -32,6 +32,7 @@ class FileHistory(object):
 
     def __init__(self):
         """Class to manage the file-access history"""
+        self.sublime_settings = sublime.load_settings('Preferences.sublime-settings')
         self.PRINT_DEBUG = False
         self.__load_settings()
         self.__load_history()
@@ -123,6 +124,9 @@ class FileHistory(object):
 
     def get_history(self, current_project_only=True):
         """Return the requested history (global or project-specific): closed files followed by opened files"""
+
+        # Set a special setting so we can isolate the context for the quick-open command
+        self.sublime_settings.set('file_history_active', True)
 
         # Make sure the history is loaded
         if len(self.history) == 0:
@@ -231,6 +235,9 @@ class FileHistory(object):
         self.preview_view = None
         self.preview_history_entry = None
 
+        # Remove the special setting (used by the quick-open command)
+        self.sublime_settings.erase('file_history_active')
+
     def __track_calling_view(self, window):
         """Remember the view that the command was run from (including the group and index positions),
         so we can return to the "calling" view if the user cancels the preview
@@ -280,14 +287,17 @@ class FileHistory(object):
             self.__close_preview(window)
             self.__remove_view(filepath, self.get_current_project_key(), True)
 
-    def open_preview(self):
+    def quick_open_preview(self):
         """Open the file that is currently being previewed"""
         if not self.preview_history_entry: return
 
-        (group, index) = self.__calculate_view_index(sublime.active_window(), self.preview_history_entry)
-
-        view = sublime.active_window().open_file(self.preview_view.file_name())
-        sublime.active_window().set_view_index(view, group, index)
+        # Only try to open and position the file if it is transient
+        window = sublime.active_window()
+        view = window.find_open_file(self.preview_history_entry['filename'])
+        if view == window.transient_view_in_group(window.active_group()) or not view:
+            (group, index) = self.__calculate_view_index(window, self.preview_history_entry)
+            view = window.open_file(self.preview_view.file_name())
+            window.set_view_index(view, group, index)
 
     def open_history(self, window, history_entry):
         """Open the file represented by the history_entry in the provided window"""
@@ -362,7 +372,7 @@ class OpenRecentlyClosedFileEvent(sublime_plugin.EventListener):
 
         # If this view is being previewed (transient), then don't trigger the file history event
         if not FileHistory.instance().is_preview_view(view):
-            (group, index) = view.window().get_view_index(view)
+            (group, index) = sublime.active_window().get_view_index(view)
             FileHistory.instance().add_view(view.file_name(), group, index, 'opened')
 
 
@@ -373,7 +383,7 @@ class CleanupFileHistoryCommand(sublime_plugin.WindowCommand):
 
 class QuickOpenFileHistoryCommand(sublime_plugin.WindowCommand):
     def run(self):
-        FileHistory.instance().open_preview()
+        FileHistory.instance().quick_open_preview()
 
 
 class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
