@@ -227,7 +227,9 @@ class FileHistory(object):
         self.calling_view = None
         self.calling_view_index = []
         self.calling_view_is_empty = True
+
         self.preview_view = None
+        self.preview_history_entry = None
 
     def __track_calling_view(self, window):
         """Remember the view that the command was run from (including the group and index positions),
@@ -238,8 +240,34 @@ class FileHistory(object):
             self.calling_view_index = window.get_view_index(self.calling_view)
             self.calling_view_is_empty = len(window.views()) == 0
 
+    def __calculate_view_index(self, window, history_entry):
+        # Get the group of the new view (the currently active group is the default)
+        group = history_entry['group']
+        if group < 0 or group >= window.num_groups():
+            group = self.calling_view_index[0]
+
+        # Get the alternative tab index (in case the saved index in no longer valid):
+        # The file could be opened in the saved tab position or as the first tab, the last tab or after the current tab...
+        max_index = len(window.views_in_group(group))
+        saved_index = history_entry['index']
+        if self.USE_SAVED_POSITION and saved_index >= 0 and saved_index <= max_index:
+            index = saved_index
+        elif self.NEW_TAB_POSITION == 'first':
+            index = 0
+        elif self.NEW_TAB_POSITION == 'last':
+            index = max_index
+        elif self.calling_view_index:
+            # DEFAULT: Open in the next tab
+            index = self.calling_view_index[1] + 1
+        else:
+            index = 0
+        return (group, index)
+
     def preview_history(self, window, history_entry):
         """Preview the file if it exists, otherwise show the previous view (aka the "calling_view")"""
+        self.preview_history_entry = history_entry
+
+        # Only preview the view if the user wants to see it
         if not self.SHOW_FILE_PREVIEW: return
 
         self.__track_calling_view(window)
@@ -252,32 +280,20 @@ class FileHistory(object):
             self.__close_preview(window)
             self.__remove_view(filepath, self.get_current_project_key(), True)
 
+    def open_preview(self):
+        """Open the file that is currently being previewed"""
+        if not self.preview_history_entry: return
+
+        (group, index) = self.__calculate_view_index(sublime.active_window(), self.preview_history_entry)
+
+        view = sublime.active_window().open_file(self.preview_view.file_name())
+        sublime.active_window().set_view_index(view, group, index)
+
     def open_history(self, window, history_entry):
         """Open the file represented by the history_entry in the provided window"""
         self.__track_calling_view(window)
 
-        # Get the group of the new view (the currently active group is the default)
-        group = history_entry['group']
-        if group < 0 or group >= window.num_groups():
-            group = self.calling_view_index[0]
-
-        # Get the alternative tab index (in case the saved index in no longer valid):
-        # The file could be opened in the first tab, last tab or after the current tab...
-        max_index = len(window.views_in_group(group))
-        saved_index = history_entry['index']
-
-        # Use the saved index if it is still valid, otherwise open it according to the settings (default is next)
-        if self.USE_SAVED_POSITION and saved_index >= 0 and saved_index <= max_index:
-            index = saved_index
-        elif self.NEW_TAB_POSITION == 'first':
-            index = 0
-        elif self.NEW_TAB_POSITION == 'last':
-            index = max_index
-        elif self.calling_view_index:
-            # DEFAULT: Open in the next tab
-            index = self.calling_view_index[1] + 1
-        else:
-            index = 0
+        (group, index) = self.__calculate_view_index(window, history_entry)
 
         # Open the file and position the view correctly
         new_view = window.open_file(history_entry['filename'])
@@ -350,10 +366,14 @@ class OpenRecentlyClosedFileEvent(sublime_plugin.EventListener):
             FileHistory.instance().add_view(view.file_name(), group, index, 'opened')
 
 
-
 class CleanupFileHistoryCommand(sublime_plugin.WindowCommand):
     def run(self, current_project_only=True):
         FileHistory.instance().clean_history(current_project_only)
+
+
+class QuickOpenFileHistoryCommand(sublime_plugin.WindowCommand):
+    def run(self):
+        FileHistory.instance().open_preview()
 
 
 class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
@@ -372,6 +392,7 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
             if is_ST2:
                 self.window.show_quick_panel(display_list, self.open_file)
             else:
+                # flags=sublime.MONOSPACE_FONT,
                 self.window.show_quick_panel(display_list, self.open_file, on_highlight=self.show_preview)
         else:
             self.open_file(0)
