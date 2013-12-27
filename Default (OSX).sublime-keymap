@@ -2,7 +2,8 @@
 	{ "keys": ["super+shift+t"],     "command": "open_recently_closed_file", "args": {"show_quick_panel": false} },
 	{ "keys": ["super+alt+t"],       "command": "open_recently_closed_file" },
 	{ "keys": ["super+alt+shift+t"], "command": "open_recently_closed_file", "args": {"current_project_only": false} },
-        { "keys": ["tab"], "command": "quick_open_file_history", "context": [
-            { "key": "overlay_visible", "operator": "equal", "operand": true }
-        ]}	
+        { "keys": ["right"], "command": "quick_open_file_history", "context": [
+            { "key": "overlay_visible", "operator": "equal", "operand": true },
+            { "key": "setting.file_history_active", "operator": "equal", "operand": true }
+        ]}
 ]
