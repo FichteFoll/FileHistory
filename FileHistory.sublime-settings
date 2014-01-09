@@ -25,6 +25,9 @@
     // If a cleanup of the history should be run on startup
     "cleanup_on_startup": true,
     
+    // Should a monospace be used in the quick panel?
+    "use_monospace_font": false,
+    
     // Print out the debug text?
     "debug": false
 }
