@@ -7,11 +7,14 @@ or send a letter to Creative Commons, 171 Second Street, Suite 300, San Francisc
 '''
 
 # TODO some restructuring
-# TODO option to cleanup the history database (json) on start
-# TODO The correct position will not be recorded in the case when a file is opened but not yet activated.
-#      This can happen when a file is re-opened from history (without preview) then repositioned and closed (but never activated).
+# DONE option to cleanup the history database (json) on start
 # DONE introduce a settings file to get settings from
-# DONE use api function (implemented in ST3) to get the project name/id (rather than using a hash of the project folders)
+# DONE [ST3] use api function (only available in ST3) to get the project name/id (rather than using a hash of the project folders)
+# DONE [ST3] preview the file while cycling through the quick panel history entries
+# SONE [ST3] support "quick open" from the quick panel (mapped by default to the "right" key)
+# DONE [ST3] removed unnecessary view settings (and associated code) by listening for the on_pre_close event rather than the on_close event
+# DONE added setting for using monospaced font in the quick panel
+# DONE fixed ST2 support
 import sublime
 import sublime_plugin
 import os
@@ -33,47 +36,49 @@ class FileHistory(object):
     def __init__(self):
         """Class to manage the file-access history"""
         self.sublime_settings = sublime.load_settings('Preferences.sublime-settings')
+        self.SETTINGS_FILE = 'FileHistory.sublime-settings.DELETE_ME'
         self.PRINT_DEBUG = False
         self.__load_settings()
         self.__load_history()
         self.__clear_context()
 
-        if self.CLEANUP_ON_STARTUP:
+        if self.CLEANUP_ON_STARTUP and not is_ST2:
             sublime.set_timeout_async(lambda: self.clean_history(False) , 0)
-
 
     def __load_settings(self):
         """Load the plugin settings from FileHistory.sublime-settings"""
-        settings = sublime.load_settings('FileHistory.sublime-settings')
-        self.PRINT_DEBUG = self.__get_setting(settings, 'debug', True)
-        self.GLOBAL_MAX_ENTRIES = self.__get_setting(settings, 'global_max_entries', 100)
-        self.PROJECT_MAX_ENTRIES = self.__get_setting(settings, 'project_max_entries', 50)
-        self.USE_SAVED_POSITION = self.__get_setting(settings, 'use_saved_position', True)
-        self.NEW_TAB_POSITION = self.__get_setting(settings, 'new_tab_position', 'next')
-        self.SHOW_FILE_PREVIEW = self.__get_setting(settings, 'show_file_preview', True)
-        self.REMOVE_NON_EXISTENT_FILES = self.__get_setting(settings, 'remove_non_existent_files_on_preview', True)
-        self.CLEANUP_ON_STARTUP = self.__get_setting(settings, 'cleanup_on_startup', True)
-
-        history_path = self.__get_setting(settings, 'history_file', 'User/FileHistory.json')
+        app_settings = sublime.load_settings(self.SETTINGS_FILE)
+        self.PRINT_DEBUG = self.__ensure_setting(app_settings, 'debug', True)
+        self.GLOBAL_MAX_ENTRIES = self.__ensure_setting(app_settings, 'global_max_entries', 100)
+        self.PROJECT_MAX_ENTRIES = self.__ensure_setting(app_settings, 'project_max_entries', 50)
+        self.USE_SAVED_POSITION = self.__ensure_setting(app_settings, 'use_saved_position', True)
+        self.NEW_TAB_POSITION = self.__ensure_setting(app_settings, 'new_tab_position', 'next')
+        self.REMOVE_NON_EXISTENT_FILES = self.__ensure_setting(app_settings, 'remove_non_existent_files_on_preview', True)
+        self.CLEANUP_ON_STARTUP = self.__ensure_setting(app_settings, 'cleanup_on_startup', True)
+        history_path = self.__ensure_setting(app_settings, 'history_file', 'User/FileHistory.json')
         self.HISTORY_FILE = os.path.normpath(os.path.join(sublime.packages_path(), history_path))
-
+        self.USE_MONOSPACE = self.__ensure_setting(app_settings, 'use_monospace_font', False)
         # Ignore the file preview setting for ST2
-        if is_ST2: self.SHOW_FILE_PREVIEW = False
+        self.SHOW_FILE_PREVIEW = False if is_ST2 else self.__ensure_setting(app_settings, 'show_file_preview', True)
 
+        if not sublime.find_resources(self.SETTINGS_FILE):
+            print('[FileHistory] Unable to find the settings file "%s".  A default settings file has been created for you.' % (self.SETTINGS_FILE))
+            sublime.save_settings(self.SETTINGS_FILE)
 
-    def __get_setting(self, settings, key, default_value):
+    def __ensure_setting(self, settings, key, default_value):
         value = default_value
         if settings.has(key):
             value = settings.get(key)
             self.debug('FileHistory setting "%s" = "%s"' % (key, value))
         else:
             self.debug('FileHistory setting "%s" not found.  Using the default value of "%s"' % (key, default_value))
+            settings.set(key, default_value)
         return value
 
     def debug(self, text):
         """Helper method for "logging" to the console."""
         if self.PRINT_DEBUG:
-            print('[%s] %s' % ('FileHistory', text) )
+            print('[FileHistory] ' + text)
 
     def get_current_project_key(self):
         m = hashlib.md5()
@@ -125,7 +130,7 @@ class FileHistory(object):
     def get_history(self, current_project_only=True):
         """Return the requested history (global or project-specific): closed files followed by opened files"""
 
-        # Set a special setting so we can isolate the context for the quick-open command
+        # Set a special setting so we can isolate the context for the quick-open command's keymap entry
         self.sublime_settings.set('file_history_active', True)
 
         # Make sure the history is loaded
@@ -152,12 +157,18 @@ class FileHistory(object):
             self.history[project_name]['opened'] = []
             self.history[project_name]['closed'] = []
 
-    def add_view(self, filename, group, index, history_type):
+    def add_view(self, window, view, history_type):
+        # No point adding a transient view to the history
+        if self.is_transient_view(window, view):
+            return
+
         # Only keep track of files that have a filename
+        filename = view.file_name()
         if filename != None:
             project_name = self.get_current_project_key()
             if os.path.exists(filename):
                 # Add to both the project-specific and global histories
+                (group, index) = sublime.active_window().get_view_index(view)
                 self.__add_to_history(project_name, history_type, filename, group, index)
                 self.__add_to_history('global', history_type, filename, group, index)
             else:
@@ -211,6 +222,7 @@ class FileHistory(object):
 
 
     def __clean_history(self, project_name):
+        self.debug('Cleaning the "%s" history' % (project_name))
         # Only continue if this project exists
         if project_name not in self.history:
             sublime.status_message("This project does not have any history")
@@ -232,8 +244,8 @@ class FileHistory(object):
         self.calling_view_index = []
         self.calling_view_is_empty = True
 
-        self.preview_view = None
-        self.preview_history_entry = None
+        self.current_view = None
+        self.current_history_entry = None
 
         # Remove the special setting (used by the quick-open command)
         self.sublime_settings.erase('file_history_active')
@@ -272,7 +284,7 @@ class FileHistory(object):
 
     def preview_history(self, window, history_entry):
         """Preview the file if it exists, otherwise show the previous view (aka the "calling_view")"""
-        self.preview_history_entry = history_entry
+        self.current_history_entry = history_entry
 
         # Only preview the view if the user wants to see it
         if not self.SHOW_FILE_PREVIEW: return
@@ -281,22 +293,21 @@ class FileHistory(object):
 
         filepath = history_entry['filename']
         if os.path.exists(filepath):
-            self.preview_view = window.open_file(filepath, sublime.TRANSIENT)
+            self.current_view = window.open_file(filepath, sublime.TRANSIENT)
         else:
             # Close the last preview and remove the non-existent file from the history
             self.__close_preview(window)
             self.__remove_view(filepath, self.get_current_project_key(), True)
 
-    def quick_open_preview(self):
+    def quick_open_preview(self, window):
         """Open the file that is currently being previewed"""
-        if not self.preview_history_entry: return
+        if not self.current_history_entry: return
 
         # Only try to open and position the file if it is transient
-        window = sublime.active_window()
-        view = window.find_open_file(self.preview_history_entry['filename'])
-        if view == window.transient_view_in_group(window.active_group()) or not view:
-            (group, index) = self.__calculate_view_index(window, self.preview_history_entry)
-            view = window.open_file(self.preview_view.file_name())
+        view = window.find_open_file(self.current_history_entry['filename'])
+        if self.is_transient_view(window, view):
+            (group, index) = self.__calculate_view_index(window, self.current_history_entry)
+            view = window.open_file(self.current_view.file_name())
             window.set_view_index(view, group, index)
 
     def open_history(self, window, history_entry):
@@ -311,14 +322,14 @@ class FileHistory(object):
         self.debug('Opened file in group %s, index %s (based on saved group %s, index %s): %s' % (group, index, history_entry['group'], history_entry['index'], history_entry['filename']))
 
         # Add the file we just opened to the history and clear the context
-        self.add_view(history_entry['filename'], group, index, 'opened')
+        self.add_view(window, new_view, 'opened')
         self.__clear_context()
 
     def __close_preview(self, window):
         if not self.SHOW_FILE_PREVIEW: return
 
         if self.calling_view_is_empty:
-            # Close the last preview view (focusing the saved calling_view doesn't work)
+            # focusing the saved calling_view doesn't work, so close the last preview view
             window.run_command("close_file")
         else:
             window.focus_view( self.calling_view )
@@ -328,52 +339,19 @@ class FileHistory(object):
         self.__close_preview(window)
         self.__clear_context()
 
-    def is_preview_view(self, view):
+    def is_transient_view(self, window, view):
         if is_ST2: return False
 
-        # The view is not correctly reported as being transient by the API when it
-        # is closed, so we need to keep track of the preview view separately
-        is_transient_view = False
-        if view == self.preview_view:
-            is_transient_view = True
-        return is_transient_view
+        return view == window.transient_view_in_group(window.active_group()) or not view
 
 
 class OpenRecentlyClosedFileEvent(sublime_plugin.EventListener):
     """class to keep a history of the files that have been opened and closed"""
-
-    def remember_position(self, view):
-        if FileHistory.instance().is_preview_view(view): return
-
-        # Need to remember the position because it is longer available via the API when the file is being closed
-        (group, index) = sublime.active_window().get_view_index(view)
-        view.settings().set('FileViewer.group', group)
-        view.settings().set('FileViewer.index', index)
-
-    def on_activated(self, view):
-        self.remember_position(view)
-
-    def get_view_setting(self, view, key, default_value):
-        return view.settings().get(key) if view.settings().has(key) else default_value
-
-    def on_close(self, view):
-        # The position of the view is no longer available via the API when the view is being closed,
-        # so we keep track of the position separately
-        (default_group, default_index) = sublime.active_window().get_view_index(sublime.active_window().active_view())
-        group = self.get_view_setting(view, 'FileViewer.group', default_group)
-        index = self.get_view_setting(view, 'FileViewer.index', default_index + 1)
-
-        # If this view is being previewed (transient), then don't trigger the file history event
-        if not FileHistory.instance().is_preview_view(view):
-            FileHistory.instance().add_view(view.file_name(), group, index, 'closed')
+    def on_pre_close(self, view):
+        FileHistory.instance().add_view(sublime.active_window(), view, 'closed')
 
     def on_load(self, view):
-        self.remember_position(view)
-
-        # If this view is being previewed (transient), then don't trigger the file history event
-        if not FileHistory.instance().is_preview_view(view):
-            (group, index) = sublime.active_window().get_view_index(view)
-            FileHistory.instance().add_view(view.file_name(), group, index, 'opened')
+        FileHistory.instance().add_view(sublime.active_window(), view, 'opened')
 
 
 class CleanupFileHistoryCommand(sublime_plugin.WindowCommand):
@@ -383,26 +361,25 @@ class CleanupFileHistoryCommand(sublime_plugin.WindowCommand):
 
 class QuickOpenFileHistoryCommand(sublime_plugin.WindowCommand):
     def run(self):
-        FileHistory.instance().quick_open_preview()
+        FileHistory.instance().quick_open_preview(sublime.active_window())
 
 
 class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
     """class to either open the last closed file or show a quick panel with the recent file history (closed files first)"""
 
     def run(self, show_quick_panel=True, current_project_only=True):
-        # Prepare the display list with the file name and path separated
         self.history_list = FileHistory.instance().get_history(current_project_only)
-        display_list = []
-        for node in self.history_list:
-            filepath = node['filename']
-            display_list.append([os.path.basename(filepath), os.path.dirname(filepath)])
-
         if show_quick_panel:
-            # The new ST3 API supports an "on_highlight" function in the "show_quick_panel" call
+            # Prepare the display list with the file name and path separated
+            display_list = []
+            for node in self.history_list:
+                filepath = node['filename']
+                display_list.append([os.path.basename(filepath), os.path.dirname(filepath)])
+            font_flag = sublime.MONOSPACE_FONT if FileHistory.instance().USE_MONOSPACE else 0
             if is_ST2:
-                self.window.show_quick_panel(display_list, self.open_file)
+                self.window.show_quick_panel(display_list, self.open_file, font_flag)
             else:
-                self.window.show_quick_panel(display_list, self.open_file, on_highlight=self.show_preview)
+                self.window.show_quick_panel(display_list, self.open_file, font_flag, on_highlight=self.show_preview)
         else:
             self.open_file(0)
 
@@ -420,3 +397,5 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
         else:
             # The user cancelled the action
             FileHistory.instance().reset(self.window)
+
+        self.history_list = {}
