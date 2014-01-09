@@ -1,13 +1,7 @@
 File History
 ============
 
-A plugin to provide access to the history of accessed files - project-wise or globally. Stores a JSON file with the file history.
-**Sublime Text 3 compatible**.
-
-Obtained from https://gist.github.com/1133602 by Josh Bjornson.
-
-
-**Note**: I tried checking for file existence in the history but this took more time than expected (especially with networked files) and made the plugin quite unresponsive. The compromise is a command to cleanup the current project (with the option to clean up the global list as well). The cleanup will remove any files in the project history that don't exist.
+**Sublime Text 2 and 3** plugin to provide access to the history of accessed files - project-wise or globally. Stores data in a JSON file. The most recently closed file can be instantly re-opened with a keyboard shortcut or the user can search through the entire file history within the quick panel (including file preview and the ability to open multiple files).  
 
 For a changelog, see CHANGELOG.md.
 
