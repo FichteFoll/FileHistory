@@ -16,7 +16,7 @@ Overview of features:
 * Optionally display the quick panel entries with a monospaced font (by setting the ```use_monospace_font``` setting to ```true```)
 * Open multiple history entries from the quick panel with the ```right``` key (requires a keymap entry - see [Default.sublime-keymap][keymap] ([OSX][keymap-osx]))
 
-Originally obtained from a [https://gist.github.com/1133602][gist] by Josh Bjornson.
+Originally obtained from a [gist][gist] by Josh Bjornson.
 
 
 ## Installation ##
