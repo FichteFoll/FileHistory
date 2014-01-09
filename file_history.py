@@ -36,7 +36,7 @@ class FileHistory(object):
     def __init__(self):
         """Class to manage the file-access history"""
         self.sublime_settings = sublime.load_settings('Preferences.sublime-settings')
-        self.SETTINGS_FILE = 'FileHistory.sublime-settings.DELETE_ME'
+        self.SETTINGS_FILE = 'FileHistory.sublime-settings'
         self.PRINT_DEBUG = False
         self.__load_settings()
         self.__load_history()
