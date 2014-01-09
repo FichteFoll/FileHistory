@@ -1,6 +1,18 @@
 File History Changelog
 ======================
 
+v1.3.5 (2014-01-09)
+-------------------
+
+- Added settings file to simplify customization
+- ST3 only: Preview the history entries while searching through the quick panel
+- ST3 only: Remove files that no longer exist while searching through the quick panel
+- ST3 only: Added option to cleanup this history on startup (remove any files that no longer exist)
+- Show the quick panel with a monospace font
+- Customize where the history data is stored
+- Option to try to re-use the position the file was in when it was closed
+- A default settings file will be created if one does not exist (default is User/FileHistory.json in the packages directory)
+
 
 v1.3.3 (2013-12-17)
 -------------------
