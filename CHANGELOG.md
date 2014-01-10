@@ -1,6 +1,12 @@
 File History Changelog
 ======================
 
+v1.4.4 (2014-01-10)
+-------------------
+
+- Quick-open: Refocus on the newly opened file rather than the origional one
+
+
 v1.4.3 (2014-01-10)
 -------------------
 
