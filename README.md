@@ -37,7 +37,8 @@ The "Packages" directory (for ST2) is located at:
 * Windows: `%APPDATA%/Sublime Text 2/Packages/`
 
 Or enter
-```print(sublime.packages_path())
+```
+print(sublime.packages_path())
 ```
 into the console (`` Ctrl-` ``).
 
