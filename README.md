@@ -4,7 +4,7 @@
 
 ## Features ##
 
-Keeps a history of the files that you have accessed in SublimeText (on both a per-project and global level).  The most recently closed file can be instantly re-opened with a keyboard shortcut (default is ```ctrl+shift+t```) or the user can search through the entire file history in the quick panel (default is ```ctrl+alt+t``` for the current project and ```ctrl+alt+shift+t``` for the global history).  
+Keeps a history of the files that you have accessed in SublimeText (on both a per-project and global level).  The most recently closed file can be instantly re-opened with a keyboard shortcut or the user can search through the entire file history in the quick panel.  
 
 Overview of features:
 * [Settings][settings] file to customize the functionality.  
