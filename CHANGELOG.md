@@ -1,6 +1,12 @@
 File History Changelog
 ======================
 
+v1.4.0 (2014-01-10)
+-------------------
+
+- Fixed some issues in the README and added a settings section
+- Updated the version number to reflect significance of the added functionality
+
 v1.3.5 (2014-01-09)
 -------------------
 
