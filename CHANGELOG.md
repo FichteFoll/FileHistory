@@ -1,6 +1,11 @@
 File History Changelog
 ======================
 
+v1.4.1 (2014-01-10)
+-------------------
+
+- Updated the version number in messages.json
+
 v1.4.0 (2014-01-10)
 -------------------
 
