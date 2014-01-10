@@ -1,6 +1,17 @@
 File History Changelog
 ======================
 
+v1.4.3 (2014-01-10)
+-------------------
+
+- Updated the version number in messages.json and CHANGELOG.md
+
+v1.4.2 (2014-01-10)
+-------------------
+
+- Added MIT license
+
+
 v1.4.1 (2014-01-10)
 -------------------
 
