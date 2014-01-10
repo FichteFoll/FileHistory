@@ -302,6 +302,10 @@ class FileHistory(object):
             view = window.open_file(self.current_view.file_name())
             window.set_view_index(view, group, index)
 
+        # Refocus on the newly opened file rather than the origional one
+        self.__clear_context()
+        self.__track_calling_view(window)
+
     def open_history(self, window, history_entry):
         """Open the file represented by the history_entry in the provided window"""
         self.__track_calling_view(window)
