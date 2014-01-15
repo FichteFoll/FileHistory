@@ -40,6 +40,8 @@ class FileHistory(object):
     def __load_settings(self):
         """Load the plugin settings from FileHistory.sublime-settings"""
         app_settings = sublime.load_settings(self.SETTINGS_FILE)
+        settings_exist = app_settings.has('history_file')
+        
         self.PRINT_DEBUG = self.__ensure_setting(app_settings, 'debug', True)
         self.GLOBAL_MAX_ENTRIES = self.__ensure_setting(app_settings, 'global_max_entries', 100)
         self.PROJECT_MAX_ENTRIES = self.__ensure_setting(app_settings, 'project_max_entries', 50)
@@ -53,7 +55,7 @@ class FileHistory(object):
         # Ignore the file preview setting for ST2
         self.SHOW_FILE_PREVIEW = False if is_ST2 else self.__ensure_setting(app_settings, 'show_file_preview', True)
 
-        if not sublime.find_resources(self.SETTINGS_FILE):
+        if not settings_exist:
             print('[FileHistory] Unable to find the settings file "%s".  A default settings file has been created for you.' % (self.SETTINGS_FILE))
             sublime.save_settings(self.SETTINGS_FILE)
 
