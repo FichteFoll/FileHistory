@@ -9,7 +9,7 @@ v1.4.5 (2014-01-15)
 v1.4.4 (2014-01-10)
 -------------------
 
-- Quick-open: Refocus on the newly opened file rather than the origional one
+- Quick-open: Refocus on the newly opened file rather than the original one
 
 
 v1.4.3 (2014-01-10)
