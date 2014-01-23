@@ -4,7 +4,7 @@ File History Changelog
 v1.4.6 (2014-01-23)
 -------------------
 
-- Fix for issue #13 that occured when there were no views open in the window
+- Fix for issue #13 that occurred when there were no views open in the window
 
 v1.4.5 (2014-01-15)
 -------------------
