@@ -250,9 +250,15 @@ class FileHistory(object):
         (or so we can show something if a file in the history no longer exists)"""
         if not self.calling_view:
             self.calling_view = window.active_view()
-            self.calling_view_index = window.get_view_index(self.calling_view)
-            self.calling_view_is_empty = len(window.views()) == 0
-
+            #self.calling_view_index = window.get_view_index(self.calling_view)
+            #self.calling_view_is_empty = len(window.views()) == 0
+            if self.calling_view:
+                self.calling_view_index = window.get_view_index(self.calling_view)
+                self.calling_view_is_empty = len(window.views()) == 0
+            else:
+                self.calling_view_index = [0, 0]
+                self.calling_view_is_empty = True
+                
     def __calculate_view_index(self, window, history_entry):
         # Get the group of the new view (the currently active group is the default)
         group = history_entry['group']
