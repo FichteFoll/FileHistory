@@ -71,12 +71,12 @@ class FileHistory(object):
         self.CLEANUP_ON_STARTUP = self.__ensure_setting(app_settings, 'cleanup_on_startup', True)
         history_path = self.__ensure_setting(app_settings, 'history_file', 'User/FileHistory.json')
         self.HISTORY_FILE = os.path.normpath(os.path.join(sublime.packages_path(), history_path))
-        self.USE_MONOSPACE = self.__ensure_setting(app_settings, 'use_monospace_font', False)
+        self.USE_MONOSPACE = self.__ensure_setting(app_settings, 'monospace_font', False)
         self.DISPLAY_TIMESTAMPS = self.__ensure_setting(app_settings, 'display_timestamps', True)
         self.TIMESTAMP_FORMAT = self.__ensure_setting(app_settings, 'timestamp_format', default_date_format)
         self.TIMESTAMP_MODE = self.__ensure_setting(app_settings, 'timestamp_mode', 'history_access')
-        self.PRETTY_PRINT_HISTORY = self.__ensure_setting(app_settings, 'pretty_print_history', False)
-        self.INDENT_SIZE = self.__ensure_setting(app_settings, 'indent_size', 2)
+        self.PRETTIFY_HISTORY = self.__ensure_setting(app_settings, 'prettify_history', False)
+        self.INDENT_SIZE = 4
 
         try:
             self.get_timestamp()
@@ -164,7 +164,7 @@ class FileHistory(object):
         self.debug('Saving the history to file ' + self.HISTORY_FILE)
         f = open(self.HISTORY_FILE, mode='w+')
         try:
-            history_indentation = self.INDENT_SIZE if self.PRETTY_PRINT_HISTORY else None
+            history_indentation = self.INDENT_SIZE if self.PRETTIFY_HISTORY else None
 
             json.dump(self.history, f, indent=history_indentation)
 
