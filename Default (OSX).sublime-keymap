@@ -5,5 +5,9 @@
         { "keys": ["right"], "command": "quick_open_file_history", "context": [
             { "key": "overlay_visible", "operator": "equal", "operand": true },
             { "key": "setting.file_history_active", "operator": "equal", "operand": true }
+        ]},
+        { "keys": ["super+delete"], "command": "delete_file_history_entry", "context": [
+            { "key": "overlay_visible", "operator": "equal", "operand": true },
+            { "key": "setting.file_history_active", "operator": "equal", "operand": true }
         ]}
 ]
