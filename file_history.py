@@ -1,4 +1,3 @@
-# TODO some restructuring
 # DONE option to cleanup the history database (json) on start
 # DONE introduce a settings file to get settings from
 # DONE [ST3] use api function (only available in ST3) to get the project name/id (rather than using a hash of the project folders)
@@ -7,13 +6,30 @@
 # DONE [ST3] removed unnecessary view settings (and associated code) by listening for the on_pre_close event rather than the on_close event
 # DONE added setting for using monospaced font in the quick panel
 # DONE fixed ST2 support
+
+# DONE Fixed bug when plugin invoked in a window without a view
+# DONE [ST2] Added support for cleanup on startup for ST2
+# DONE Improved plugin responsiveness by opening the preview in the background (noticable with large or remote files)
+# DONE Added option to display the timestamp of the history entry (either the last opened/closed timestamp or the filesystem's last modified timestamp)
+# DONE [ST3] Quick panel support for removing the history entry being previewed. Note: the entry will be deleted but will still be visible in the current quick panel. Mapped to "ctrl+delete" by default ("cmd+delete" on OSX).
+#
+# DONE cleanup all histories, not just current project and global
+# DONE support various formatting options for the history file, including specifying the indentation size or no formatting
+
 import sublime
 import sublime_plugin
 import os
 import hashlib
 import json
+import time
 
 is_ST2 = int(sublime.version()) < 3000
+
+def plugin_loaded():
+    # Force the FileHistory singleton to be instanciated so the startup tasks will be executed
+    # Depending on the "cleanup_on_startup" setting, the history may be cleaned at startup
+    FileHistory.instance()
+
 
 class FileHistory(object):
     _instance = None
@@ -34,10 +50,14 @@ class FileHistory(object):
         self.__load_history()
         self.__clear_context()
 
-        if self.CLEANUP_ON_STARTUP and not is_ST2:
-            sublime.set_timeout_async(lambda: self.clean_history(False) , 0)
+        self.invoke_async = sublime.set_timeout if is_ST2 else sublime.set_timeout_async
+
+        if self.CLEANUP_ON_STARTUP:
+            self.invoke_async(lambda: self.clean_history(False) , 0)
 
     def __load_settings(self):
+        default_date_format = '%Y-%m-%d %H:%M:%S'
+
         """Load the plugin settings from FileHistory.sublime-settings"""
         app_settings = sublime.load_settings(self.SETTINGS_FILE)
         settings_exist = app_settings.has('history_file')
@@ -52,12 +72,40 @@ class FileHistory(object):
         history_path = self.__ensure_setting(app_settings, 'history_file', 'User/FileHistory.json')
         self.HISTORY_FILE = os.path.normpath(os.path.join(sublime.packages_path(), history_path))
         self.USE_MONOSPACE = self.__ensure_setting(app_settings, 'use_monospace_font', False)
+        self.DISPLAY_TIMESTAMPS = self.__ensure_setting(app_settings, 'display_timestamps', True)
+        self.TIMESTAMP_FORMAT = self.__ensure_setting(app_settings, 'timestamp_format', default_date_format)
+        self.TIMESTAMP_MODE = self.__ensure_setting(app_settings, 'timestamp_mode', 'history_access')
+        self.PRETTY_PRINT_HISTORY = self.__ensure_setting(app_settings, 'pretty_print_history', False)
+        self.INDENT_SIZE = self.__ensure_setting(app_settings, 'indent_size', 2)
+
+        try:
+            self.get_timestamp()
+        except Exception:
+            self.TIMESTAMP_FORMAT = default_date_format
+
         # Ignore the file preview setting for ST2
         self.SHOW_FILE_PREVIEW = False if is_ST2 else self.__ensure_setting(app_settings, 'show_file_preview', True)
 
         if not settings_exist:
             print('[FileHistory] Unable to find the settings file "%s".  A default settings file has been created for you.' % (self.SETTINGS_FILE))
             sublime.save_settings(self.SETTINGS_FILE)
+
+    def get_timestamp(self, filename=None):
+        if filename and os.path.exists(filename) :
+            timestamp = time.strftime(self.TIMESTAMP_FORMAT, time.localtime(os.path.getmtime(filename)) )
+        else:
+            timestamp = time.strftime(self.TIMESTAMP_FORMAT)
+        return timestamp
+
+    def get_history_timestamp(self, history_entry):
+        filepath = history_entry['filename']
+        if 'timestamp' in history_entry and self.TIMESTAMP_MODE == 'history_access':
+            action = history_entry['action'] if 'action' in history_entry else 'accessed'
+            timestamp = history_entry['timestamp']
+        else:
+            action = 'modified'
+            timestamp = self.get_timestamp(filepath)
+        return (action, timestamp)
 
     def __ensure_setting(self, settings, key, default_value):
         value = default_value
@@ -116,29 +164,31 @@ class FileHistory(object):
         self.debug('Saving the history to file ' + self.HISTORY_FILE)
         f = open(self.HISTORY_FILE, mode='w+')
         try:
-            json.dump(self.history, f, indent=4)
+            history_indentation = self.INDENT_SIZE if self.PRETTY_PRINT_HISTORY else None
+
+            json.dump(self.history, f, indent=history_indentation)
+
             f.flush()
         finally:
             f.close()
 
     def get_history(self, current_project_only=True):
         """Return the requested history (global or project-specific): closed files followed by opened files"""
-
         # Make sure the history is loaded
         if len(self.history) == 0:
             self.__load_history()
 
         # Load the requested history (global or project-specific)
         if current_project_only:
-            project_name = self.get_current_project_key()
+            self.project_name = self.get_current_project_key()
         else:
-            project_name = 'global'
+            self.project_name = 'global'
 
         # Return the list of closed and opened files
-        if project_name in self.history:
-            return self.history[project_name]['closed'] + self.history[project_name]['opened']
+        if self.project_name in self.history:
+            return self.history[self.project_name]['closed'] + self.history[self.project_name]['opened']
         else:
-            self.debug('WARN: Project %s could not be found in the file history list - returning an empty history list' % (project_name))
+            self.debug('WARN: Project %s could not be found in the file history list - returning an empty history list' % (self.project_name))
             return []
 
     def __ensure_project(self, project_name):
@@ -186,7 +236,7 @@ class FileHistory(object):
         # Remove the file from the project list then
         # add it to the top (of the opened/closed list)
         self.__remove(project_name, filename)
-        node = {'filename': filename, 'group':group, 'index':index}
+        node = {'filename': filename, 'group': group, 'index': index, 'timestamp': self.get_timestamp(), 'action': history_type}
         self.history[project_name][history_type].insert(0, node)
 
         # Make sure we limit the number of history entries
@@ -205,11 +255,38 @@ class FileHistory(object):
                     self.history[project_name][history_type].remove(node)
 
     def clean_history(self, current_project_only):
+        # Postpone the cleanup if the plugin is active
+        if self.sublime_settings.has('file_history_active'):
+            self.invoke_async(lambda: self.clean_history(False) , 5000)
+            return
+
         self.__clean_history(self.get_current_project_key())
 
         # If requested, also clean-up the global history
         if not current_project_only:
             self.__clean_history('global')
+
+            # clean all projects and remove any orphaned projects
+            orphan_list = []
+            for project_key in self.history:
+                # skip the global project and the current one (that was just cleaned above)
+                if project_key in ('global', self.get_current_project_key()):
+                    continue
+
+                # clean the project or remove it (if it no longer exists)
+                # The ST2 version uses md5 hashes for the project keys, so we can never know if a project is orphaned
+                if not is_ST2 and not os.path.exists(project_key):
+                    # queue the orphaned project for deletion
+                    orphan_list.append(project_key)
+                else:
+                    # clean the project
+                    self.__clean_history(project_key)
+
+            # remove any orphaned projects and save the history
+            for project_key in orphan_list:
+                self.debug('Removing orphaned project "%s" from the history' % project_key)
+                del self.history[project_key]
+            self.__save_history()
 
 
     def __clean_history(self, project_name):
@@ -238,14 +315,14 @@ class FileHistory(object):
         self.current_view = None
         self.current_history_entry = None
 
+        self.project_name = None
+
     def __track_calling_view(self, window):
         """Remember the view that the command was run from (including the group and index positions),
         so we can return to the "calling" view if the user cancels the preview
         (or so we can show something if a file in the history no longer exists)"""
         if not self.calling_view:
             self.calling_view = window.active_view()
-            #self.calling_view_index = window.get_view_index(self.calling_view)
-            #self.calling_view_is_empty = len(window.views()) == 0
             if self.calling_view:
                 self.calling_view_index = window.get_view_index(self.calling_view)
                 self.calling_view_is_empty = len(window.views()) == 0
@@ -287,11 +364,17 @@ class FileHistory(object):
 
         filepath = history_entry['filename']
         if os.path.exists(filepath):
-            self.current_view = window.open_file(filepath, sublime.TRANSIENT)
+            # asyncronously open the preview (improves percieved performance)
+            self.invoke_async(lambda: self.__open_preview(window, filepath) , 0)
         else:
             # Close the last preview and remove the non-existent file from the history
             self.__close_preview(window)
             self.__remove_view(filepath, self.get_current_project_key(), True)
+
+
+    def __open_preview(self, window, filepath):
+        self.current_view = window.open_file(filepath, sublime.TRANSIENT)
+
 
     def on_file_history_open(self):
         # Set a special setting so we can isolate the context for the quick-open command's keymap entry
@@ -300,6 +383,7 @@ class FileHistory(object):
     def on_file_history_closed(self):
         # Remove the special setting that was set when the quick panel was opened
         self.sublime_settings.erase('file_history_active')
+
 
     def quick_open_preview(self, window):
         """Open the file that is currently being previewed"""
@@ -315,6 +399,15 @@ class FileHistory(object):
         # Refocus on the newly opened file rather than the original one
         self.__clear_context()
         self.__track_calling_view(window)
+
+    def delete_current_entry(self):
+        """Delete the history entry for the  file that is currently being previewed"""
+        if not self.current_history_entry: return
+
+        filename = self.current_history_entry['filename']
+        self.debug('Removing history entry for "%s" from project "%s"' % (filename, self.project_name))
+        self.__remove(self.project_name, filename)
+
 
     def open_history(self, window, history_entry):
         """Open the file represented by the history_entry in the provided window"""
@@ -370,23 +463,35 @@ class QuickOpenFileHistoryCommand(sublime_plugin.WindowCommand):
         FileHistory.instance().quick_open_preview(sublime.active_window())
 
 
+class DeleteFileHistoryEntryCommand(sublime_plugin.WindowCommand):
+    def run(self):
+        FileHistory.instance().delete_current_entry()
+
+
 class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
     """class to either open the last closed file or show a quick panel with the recent file history (closed files first)"""
 
-    def run(self, show_quick_panel=True, current_project_only=True):
+    def run(self, show_quick_panel=True, current_project_only=True, selected_file=None):
         self.history_list = FileHistory.instance().get_history(current_project_only)
         if show_quick_panel:
             # Prepare the display list with the file name and path separated
             display_list = []
             for node in self.history_list:
                 filepath = node['filename']
-                display_list.append([os.path.basename(filepath), os.path.dirname(filepath)])
+                info = [os.path.basename(filepath), os.path.dirname(filepath)]
+
+                # Only include the timestamp if it is there and if the user wants to see it
+                if FileHistory.instance().DISPLAY_TIMESTAMPS:
+                    (action, timestamp) = FileHistory.instance().get_history_timestamp(node)
+                    info.append('%s on %s' % (action, timestamp))
+
+                display_list.append(info)
             font_flag = sublime.MONOSPACE_FONT if FileHistory.instance().USE_MONOSPACE else 0
 
             FileHistory.instance().on_file_history_open()
 
             if is_ST2:
-                self.window.show_quick_panel(display_list, self.open_file, font_flag)
+                    self.window.show_quick_panel(display_list, self.open_file, font_flag)
             else:
                 self.window.show_quick_panel(display_list, self.open_file, font_flag, on_highlight=self.show_preview)
         else:
