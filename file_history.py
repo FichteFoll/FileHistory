@@ -3,7 +3,7 @@
 # DONE introduce a settings file to get settings from
 # DONE [ST3] use api function (only available in ST3) to get the project name/id (rather than using a hash of the project folders)
 # DONE [ST3] preview the file while cycling through the quick panel history entries
-# SONE [ST3] support "quick open" from the quick panel (mapped by default to the "right" key)
+# DONE [ST3] support "quick open" from the quick panel (mapped by default to the "right" key)
 # DONE [ST3] removed unnecessary view settings (and associated code) by listening for the on_pre_close event rather than the on_close event
 # DONE added setting for using monospaced font in the quick panel
 # DONE fixed ST2 support
@@ -41,7 +41,7 @@ class FileHistory(object):
         """Load the plugin settings from FileHistory.sublime-settings"""
         app_settings = sublime.load_settings(self.SETTINGS_FILE)
         settings_exist = app_settings.has('history_file')
-        
+
         self.PRINT_DEBUG = self.__ensure_setting(app_settings, 'debug', True)
         self.GLOBAL_MAX_ENTRIES = self.__ensure_setting(app_settings, 'global_max_entries', 100)
         self.PROJECT_MAX_ENTRIES = self.__ensure_setting(app_settings, 'project_max_entries', 50)
@@ -123,9 +123,6 @@ class FileHistory(object):
 
     def get_history(self, current_project_only=True):
         """Return the requested history (global or project-specific): closed files followed by opened files"""
-
-        # Set a special setting so we can isolate the context for the quick-open command's keymap entry
-        self.sublime_settings.set('file_history_active', True)
 
         # Make sure the history is loaded
         if len(self.history) == 0:
@@ -241,9 +238,6 @@ class FileHistory(object):
         self.current_view = None
         self.current_history_entry = None
 
-        # Remove the special setting (used by the quick-open command)
-        self.sublime_settings.erase('file_history_active')
-
     def __track_calling_view(self, window):
         """Remember the view that the command was run from (including the group and index positions),
         so we can return to the "calling" view if the user cancels the preview
@@ -258,7 +252,7 @@ class FileHistory(object):
             else:
                 self.calling_view_index = [0, 0]
                 self.calling_view_is_empty = True
-                
+
     def __calculate_view_index(self, window, history_entry):
         # Get the group of the new view (the currently active group is the default)
         group = history_entry['group']
@@ -298,6 +292,14 @@ class FileHistory(object):
             # Close the last preview and remove the non-existent file from the history
             self.__close_preview(window)
             self.__remove_view(filepath, self.get_current_project_key(), True)
+
+    def on_file_history_open(self):
+        # Set a special setting so we can isolate the context for the quick-open command's keymap entry
+        self.sublime_settings.set('file_history_active', True)
+
+    def on_file_history_closed(self):
+        # Remove the special setting that was set when the quick panel was opened
+        self.sublime_settings.erase('file_history_active')
 
     def quick_open_preview(self, window):
         """Open the file that is currently being previewed"""
@@ -380,6 +382,9 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
                 filepath = node['filename']
                 display_list.append([os.path.basename(filepath), os.path.dirname(filepath)])
             font_flag = sublime.MONOSPACE_FONT if FileHistory.instance().USE_MONOSPACE else 0
+
+            FileHistory.instance().on_file_history_open()
+
             if is_ST2:
                 self.window.show_quick_panel(display_list, self.open_file, font_flag)
             else:
@@ -396,6 +401,8 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
             FileHistory.instance().preview_history(self.window, self.history_list[selected_index])
 
     def open_file(self, selected_index):
+        FileHistory.instance().on_file_history_closed()
+
         if self.is_valid(selected_index):
             FileHistory.instance().open_history(self.window, self.history_list[selected_index])
         else:
