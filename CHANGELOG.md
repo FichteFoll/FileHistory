@@ -1,6 +1,11 @@
 File History Changelog
 ======================
 
+v1.4.7 (2014-07-07)
+-------------------
+
+- Fix for issue #16 due to which "right" key shortcut to open file was broken
+
 v1.4.6 (2014-01-23)
 -------------------
 
