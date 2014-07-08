@@ -28,6 +28,23 @@
     // Should a monospace be used in the quick panel?
     "use_monospace_font": false,
     
+    // Should the last accessed timestamp be shown in the quick panel?
+    "display_timestamps": true,
+
+    // Format the timestamp should be added to the history entry
+    "timestamp_format": "%Y-%m-%d @ %H:%M:%S",
+
+    // Which timestamp to display?
+    // "history_access" - last opened/closed timestamp
+    // "filesystem"     - the file's last modified timestamp
+    "timestamp_mode": "filesystem",
+
+    // Should the history file be nicely formatted?
+    "pretty_print_history": false,
+
+    // Indent size for the history file (when "pretty_print_history" is turned on)
+    "indent_size": 2,
+    
     // Print out the debug text?
     "debug": false
 }
