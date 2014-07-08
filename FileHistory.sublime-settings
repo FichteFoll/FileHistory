@@ -26,7 +26,7 @@
     "cleanup_on_startup": true,
     
     // Should a monospace be used in the quick panel?
-    "use_monospace_font": false,
+    "monospace_font": false,
     
     // Should the last accessed timestamp be shown in the quick panel?
     "display_timestamps": true,
@@ -40,11 +40,8 @@
     "timestamp_mode": "filesystem",
 
     // Should the history file be nicely formatted?
-    "pretty_print_history": false,
+    "prettify_history": false,
 
-    // Indent size for the history file (when "pretty_print_history" is turned on)
-    "indent_size": 2,
-    
     // Print out the debug text?
     "debug": false
 }
