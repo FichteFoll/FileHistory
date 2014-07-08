@@ -1,6 +1,17 @@
 File History Changelog
 ======================
 
+v1.5.0 (2014-07-08)
+-------------------
+
+- Fixed bug when plugin invoked in a window without a view
+- [ST2] Added support for cleanup on startup for ST2
+- Improved plugin responsiveness by opening the preview in the background (noticable with large or remote files)
+- Added option to display the timestamp of the history entry (either the last opened/closed timestamp or the filesystem's last modified timestamp)
+- [ST3] Quick panel support for removing the history entry being previewed. Note: the entry will be deleted but will still be visible in the current quick panel. Mapped to "ctrl+delete" by default ("cmd+delete" on OSX).
+- cleanup all histories, not just current project and global
+- support various formatting options for the history file, including specifying the indentation size or no formatting
+
 v1.4.7 (2014-07-07)
 -------------------
 
