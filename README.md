@@ -100,7 +100,7 @@ The following functionality can be customized in the [settings][settings] file:
     * default value is ```false```
 * ```cleanup_on_startup``` - Should the history be cleaned on startup?
     * default value is ```true```
-* ```use_monospace_font``` - Should a monospace be used in the quick panel?
+* ```monospace_font``` - Should a monospace be used in the quick panel?
     * default value is ```false```
 * ```display_timestamps``` - should the last access timestamp be shown in the qiuck panel
     * default value is ```true```
@@ -108,9 +108,7 @@ The following functionality can be customized in the [settings][settings] file:
     * default value is ```%Y-%m-%d @ %H:%M:%S```
 * ```timestamp_mode``` - Which timestamp to display? ("history_access" - last opened/closed timestamp, "filesystem" - the file's last modified timestamp)
     * default value is ```filesystem```
-* ```pretty_print_history``` - should the file history be saved as nicely formatted json?
-    * default value is ```false```
-* ```indent_size``` - when the history file is formatted, what should the indentation size be?
+* ```prettify_history``` - should the file history be saved as nicely formatted json?
     * default value is ```false```
 * ```debug``` - Print out the debug text to the console?
     * default value is ```false```
