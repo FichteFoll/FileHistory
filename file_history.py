@@ -26,7 +26,7 @@ import time
 is_ST2 = int(sublime.version()) < 3000
 
 def plugin_loaded():
-    # Force the FileHistory singleton to be instanciated so the startup tasks will be executed
+    # Force the FileHistory singleton to be instantiated so the startup tasks will be executed
     # Depending on the "cleanup_on_startup" setting, the history may be cleaned at startup
     FileHistory.instance()
 
@@ -43,7 +43,6 @@ class FileHistory(object):
 
     def __init__(self):
         """Class to manage the file-access history"""
-        self.sublime_settings = sublime.load_settings('Preferences.sublime-settings')
         self.SETTINGS_FILE = 'FileHistory.sublime-settings'
         self.PRINT_DEBUG = False
         self.__load_settings()
@@ -186,6 +185,7 @@ class FileHistory(object):
 
         # Return the list of closed and opened files
         if self.project_name in self.history:
+            # Note that a copy of the list must be returned
             return self.history[self.project_name]['closed'] + self.history[self.project_name]['opened']
         else:
             self.debug('WARN: Project %s could not be found in the file history list - returning an empty history list' % (self.project_name))
@@ -255,11 +255,6 @@ class FileHistory(object):
                     self.history[project_name][history_type].remove(node)
 
     def clean_history(self, current_project_only):
-        # Postpone the cleanup if the plugin is active
-        if self.sublime_settings.has('file_history_active'):
-            self.invoke_async(lambda: self.clean_history(False) , 5000)
-            return
-
         self.__clean_history(self.get_current_project_key())
 
         # If requested, also clean-up the global history
@@ -371,19 +366,8 @@ class FileHistory(object):
             self.__close_preview(window)
             self.__remove_view(filepath, self.get_current_project_key(), True)
 
-
     def __open_preview(self, window, filepath):
         self.current_view = window.open_file(filepath, sublime.TRANSIENT)
-
-
-    def on_file_history_open(self):
-        # Set a special setting so we can isolate the context for the quick-open command's keymap entry
-        self.sublime_settings.set('file_history_active', True)
-
-    def on_file_history_closed(self):
-        # Remove the special setting that was set when the quick panel was opened
-        self.sublime_settings.erase('file_history_active')
-
 
     def quick_open_preview(self, window):
         """Open the file that is currently being previewed"""
@@ -471,6 +455,8 @@ class DeleteFileHistoryEntryCommand(sublime_plugin.WindowCommand):
 class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
     """class to either open the last closed file or show a quick panel with the recent file history (closed files first)"""
 
+    __active_in_windows = set()
+
     def run(self, show_quick_panel=True, current_project_only=True, selected_file=None):
         self.history_list = FileHistory.instance().get_history(current_project_only)
         if show_quick_panel:
@@ -488,14 +474,18 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
                 display_list.append(info)
             font_flag = sublime.MONOSPACE_FONT if FileHistory.instance().USE_MONOSPACE else 0
 
-            FileHistory.instance().on_file_history_open()
-
             if is_ST2:
-                    self.window.show_quick_panel(display_list, self.open_file, font_flag)
+                self.window.show_quick_panel(display_list, self.open_file, font_flag)
             else:
                 self.window.show_quick_panel(display_list, self.open_file, font_flag, on_highlight=self.show_preview)
+
+            self.__active_in_windows.add(self.window.id())
         else:
             self.open_file(0)
+
+    @staticmethod
+    def is_active_in_window(window):
+        return window.id() in OpenRecentlyClosedFileCommand.__active_in_windows
 
     def is_valid(self, selected_index):
         return selected_index >= 0 and selected_index < len(self.history_list)
@@ -506,7 +496,7 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
             FileHistory.instance().preview_history(self.window, self.history_list[selected_index])
 
     def open_file(self, selected_index):
-        FileHistory.instance().on_file_history_closed()
+        self.__active_in_windows.remove(self.window.id())
 
         if self.is_valid(selected_index):
             FileHistory.instance().open_history(self.window, self.history_list[selected_index])
@@ -515,3 +505,17 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
             FileHistory.instance().reset(self.window)
 
         self.history_list = {}
+
+
+class OpenRecentlyCloseFileCommandContextHandler(sublime_plugin.EventListener):
+
+    def on_query_context(self, view, key, operator, operand, match_all):
+        if key != 'file_history_overlay_visible':
+            return None
+
+        if operator == sublime.OP_EQUAL:
+            return OpenRecentlyClosedFileCommand.is_active_in_window(view.window()) == bool(operand)
+        elif operator == sublime.OP_NOT_EQUAL:
+            return OpenRecentlyClosedFileCommand.is_active_in_window(view.window()) != bool(operand)
+
+        return None
