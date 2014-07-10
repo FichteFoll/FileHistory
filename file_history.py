@@ -12,16 +12,19 @@
 # DONE Improved plugin responsiveness by opening the preview in the background (noticable with large or remote files)
 # DONE Added option to display the timestamp of the history entry (either the last opened/closed timestamp or the filesystem's last modified timestamp)
 # DONE [ST3] Quick panel support for removing the history entry being previewed. Note: the entry will be deleted but will still be visible in the current quick panel. Mapped to "ctrl+delete" by default ("cmd+delete" on OSX).
-#
 # DONE cleanup all histories, not just current project and global
 # DONE support various formatting options for the history file, including specifying the indentation size or no formatting
+
+# DONE show relative time since timestamp rather than a date
+# DONE correctly support quick panel shortcuts when not showing a preview (quick open and remove from history)
+# TODO clear the history on startup (delete all!)
 
 import sublime
 import sublime_plugin
 import os
 import hashlib
 import json
-import time
+import time, datetime
 
 is_ST2 = int(sublime.version()) < 3000
 
@@ -55,6 +58,10 @@ class FileHistory(object):
         if self.CLEANUP_ON_STARTUP:
             self.invoke_async(lambda: self.clean_history(False) , 0)
 
+        if self.DELETE_ALL_ON_STARTUP:
+            self.invoke_async(lambda: self.delete_all_history() , 0)
+
+
     def __load_settings(self):
         default_date_format = '%Y-%m-%d %H:%M:%S'
 
@@ -69,12 +76,14 @@ class FileHistory(object):
         self.NEW_TAB_POSITION = self.__ensure_setting(app_settings, 'new_tab_position', 'next')
         self.REMOVE_NON_EXISTENT_FILES = self.__ensure_setting(app_settings, 'remove_non_existent_files_on_preview', True)
         self.CLEANUP_ON_STARTUP = self.__ensure_setting(app_settings, 'cleanup_on_startup', True)
+        self.DELETE_ALL_ON_STARTUP = self.__ensure_setting(app_settings, 'delete_all_on_startup', False)
         history_path = self.__ensure_setting(app_settings, 'history_file', 'User/FileHistory.json')
         self.HISTORY_FILE = os.path.normpath(os.path.join(sublime.packages_path(), history_path))
         self.USE_MONOSPACE = self.__ensure_setting(app_settings, 'monospace_font', False)
         self.DISPLAY_TIMESTAMPS = self.__ensure_setting(app_settings, 'display_timestamps', True)
         self.TIMESTAMP_FORMAT = self.__ensure_setting(app_settings, 'timestamp_format', default_date_format)
         self.TIMESTAMP_MODE = self.__ensure_setting(app_settings, 'timestamp_mode', 'history_access')
+        self.TIMESTAMP_DISPLAY_TYPE = self.__ensure_setting(app_settings, 'timestamp_display_type', 'relative')
         self.PRETTIFY_HISTORY = self.__ensure_setting(app_settings, 'prettify_history', False)
         self.INDENT_SIZE = 4
 
@@ -171,6 +180,10 @@ class FileHistory(object):
             f.flush()
         finally:
             f.close()
+
+    def delete_all_history(self):
+        self.history = {}
+        self.__save_history()
 
     def get_history(self, current_project_only=True):
         """Return the requested history (global or project-specific): closed files followed by opened files"""
@@ -357,10 +370,11 @@ class FileHistory(object):
         """Preview the file if it exists, otherwise show the previous view (aka the "calling_view")"""
         self.current_history_entry = history_entry
 
+        # track the view even if we won't be previewing it (to support quick-open and remove from history quick keys)
+        self.__track_calling_view(window)
+
         # Only preview the view if the user wants to see it
         if not self.SHOW_FILE_PREVIEW: return
-
-        self.__track_calling_view(window)
 
         filepath = history_entry['filename']
         if os.path.exists(filepath):
@@ -393,7 +407,7 @@ class FileHistory(object):
         view = window.find_open_file(self.current_history_entry['filename'])
         if self.is_transient_view(window, view):
             (group, index) = self.__calculate_view_index(window, self.current_history_entry)
-            view = window.open_file(self.current_view.file_name())
+            view = window.open_file(self.current_history_entry['filename'])
             window.set_view_index(view, group, index)
 
         # Refocus on the newly opened file rather than the original one
@@ -407,6 +421,7 @@ class FileHistory(object):
         filename = self.current_history_entry['filename']
         self.debug('Removing history entry for "%s" from project "%s"' % (filename, self.project_name))
         self.__remove(self.project_name, filename)
+        self.__save_history()
 
 
     def open_history(self, window, history_entry):
@@ -471,9 +486,30 @@ class DeleteFileHistoryEntryCommand(sublime_plugin.WindowCommand):
 class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
     """class to either open the last closed file or show a quick panel with the recent file history (closed files first)"""
 
+    def approximate_age(self, current_time, timestamp):
+        # loosely based on http://codereview.stackexchange.com/questions/37285/efficient-human-readable-timedelta
+        diff = current_time - datetime.datetime.strptime(timestamp, FileHistory.instance().TIMESTAMP_FORMAT)
+
+        years, rem = divmod(diff.total_seconds(), 31536000)
+        days, rem = divmod(rem, 86400)
+        hours, rem = divmod(rem, 3600)
+        minutes, seconds = divmod(rem, 60)
+        # only show seconds when the duration is less that an hour
+        seconds = 0 if hours > 0 or days > 0 or years > 0 else seconds
+        # only show minutes when the duration is less that a day
+        minutes = 0 if days > 0 or years > 0 else minutes
+        # only show hours when the duration is less that a year
+        hours = 0 if years > 0 else hours
+
+        values = locals()
+        magnitudes_str = ("{n} {magnitude}".format(n=int(values[magnitude]), magnitude=magnitude)
+                          for magnitude in ("years", "days", "hours", "minutes", "seconds") if values[magnitude] > 0)
+        return ", ".join(magnitudes_str)
+
     def run(self, show_quick_panel=True, current_project_only=True, selected_file=None):
         self.history_list = FileHistory.instance().get_history(current_project_only)
         if show_quick_panel:
+            current_time = datetime.datetime.now()
             # Prepare the display list with the file name and path separated
             display_list = []
             for node in self.history_list:
@@ -483,7 +519,11 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
                 # Only include the timestamp if it is there and if the user wants to see it
                 if FileHistory.instance().DISPLAY_TIMESTAMPS:
                     (action, timestamp) = FileHistory.instance().get_history_timestamp(node)
-                    info.append('%s on %s' % (action, timestamp))
+
+                    if FileHistory.instance().TIMESTAMP_DISPLAY_TYPE == "relative":
+                        info.append('%s ~%s ago' % (action, self.approximate_age(current_time, timestamp)))
+                    else:
+                        info.append('%s on %s' % (action, timestamp))
 
                 display_list.append(info)
             font_flag = sublime.MONOSPACE_FONT if FileHistory.instance().USE_MONOSPACE else 0
@@ -491,7 +531,7 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
             FileHistory.instance().on_file_history_open()
 
             if is_ST2:
-                    self.window.show_quick_panel(display_list, self.open_file, font_flag)
+                self.window.show_quick_panel(display_list, self.open_file, font_flag)
             else:
                 self.window.show_quick_panel(display_list, self.open_file, font_flag, on_highlight=self.show_preview)
         else:
