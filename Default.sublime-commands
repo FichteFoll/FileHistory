@@ -21,5 +21,9 @@
         "args": {
             "current_project_only": false
         }
+    },
+    {
+        "caption": "File History: Reset file history (DELETE ALL)",
+        "command": "reset_file_history"
     }
 ]
