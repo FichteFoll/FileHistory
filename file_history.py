@@ -473,6 +473,11 @@ class CleanupFileHistoryCommand(sublime_plugin.WindowCommand):
         FileHistory.instance().clean_history(current_project_only)
 
 
+class ResetFileHistoryCommand(sublime_plugin.WindowCommand):
+    def run(self):
+        FileHistory.instance().delete_all_history()
+
+
 class QuickOpenFileHistoryCommand(sublime_plugin.WindowCommand):
     def run(self):
         FileHistory.instance().quick_open_preview(sublime.active_window())
