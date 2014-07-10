@@ -24,6 +24,10 @@
 
     // If a cleanup of the history should be run on startup
     "cleanup_on_startup": true,
+
+    // Should the history be reset on startup 
+    // BE CAREFUL, this will DELETE ALL of your history entries
+    "delete_all_on_startup": false,
     
     // Should a monospace be used in the quick panel?
     "monospace_font": false,
@@ -33,6 +37,12 @@
 
     // Format the timestamp should be added to the history entry
     "timestamp_format": "%Y-%m-%d @ %H:%M:%S",
+
+    // How to display the timestamp:
+    // "relative": how long since the access, e.g. 2 days, 5 hours, 7 seconds
+    // "absolute": the date and time of the last access
+    // Please note that the "relative" option can cause a delay in the quick panel popping up
+    "timestamp_display_type": "relative",
 
     // Which timestamp to display?
     // "history_access" - last opened/closed timestamp
