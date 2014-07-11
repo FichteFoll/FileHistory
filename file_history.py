@@ -475,7 +475,7 @@ class DeleteFileHistoryEntryCommand(sublime_plugin.WindowCommand):
 class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
     """class to either open the last closed file or show a quick panel with the recent file history (closed files first)"""
 
-    __active_in_windows = set()
+    __is_active = False
 
     def approximate_age(self, current_time, timestamp):
         # loosely based on http://codereview.stackexchange.com/questions/37285/efficient-human-readable-timedelta
@@ -519,18 +519,23 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
                 display_list.append(info)
             font_flag = sublime.MONOSPACE_FONT if FileHistory.instance().USE_MONOSPACE else 0
 
+            self.__class__.__is_active = True
+
             if is_ST2:
                 self.window.show_quick_panel(display_list, self.open_file, font_flag)
             else:
                 self.window.show_quick_panel(display_list, self.open_file, font_flag, on_highlight=self.show_preview)
-
-            self.__active_in_windows.add(self.window.id())
         else:
             self.open_file(0)
 
-    @staticmethod
-    def is_active_in_window(window):
-        return window.id() in OpenRecentlyClosedFileCommand.__active_in_windows
+    @classmethod
+    def is_active(cls):
+        '''
+        Returns whether the history overlay is open in a window. Note that
+        only the currently focused window can have an open overlay.
+        '''
+
+        return cls.__is_active
 
     def is_valid(self, selected_index):
         return selected_index >= 0 and selected_index < len(self.history_list)
@@ -541,7 +546,7 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
             FileHistory.instance().preview_history(self.window, self.history_list[selected_index])
 
     def open_file(self, selected_index):
-        self.__active_in_windows.remove(self.window.id())
+        self.__class__.__is_active = False
 
         if self.is_valid(selected_index):
             FileHistory.instance().open_history(self.window, self.history_list[selected_index])
@@ -559,8 +564,8 @@ class OpenRecentlyCloseFileCommandContextHandler(sublime_plugin.EventListener):
             return None
 
         if operator == sublime.OP_EQUAL:
-            return OpenRecentlyClosedFileCommand.is_active_in_window(view.window()) == bool(operand)
+            return OpenRecentlyClosedFileCommand.is_active() == bool(operand)
         elif operator == sublime.OP_NOT_EQUAL:
-            return OpenRecentlyClosedFileCommand.is_active_in_window(view.window()) != bool(operand)
+            return OpenRecentlyClosedFileCommand.is_active() != bool(operand)
 
         return None
