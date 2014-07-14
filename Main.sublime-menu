@@ -62,7 +62,22 @@
                                     "file": "${packages}/User/Default (Windows).sublime-keymap",
                                     "platform": "Windows"
                                 }
+                            },
+                            {
+                                "caption": "Settings - Default",
+                                "command": "open_file",
+                                "args": {
+                                    "file": "${packages}/File History/FileHistory.sublime-settings"
+                                }
+                            },
+                            {
+                                "caption": "Settings - User",
+                                "command": "open_file",
+                                "args": {
+                                    "file": "${packages}/User/FileHistory.sublime-settings"
+                                }
                             }
+
                         ]
                     }
                 ]
