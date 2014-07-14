@@ -499,17 +499,12 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
         days, rem = divmod(rem, 86400)
         hours, rem = divmod(rem, 3600)
         minutes, seconds = divmod(rem, 60)
-        # only show seconds when the duration is less that an hour
-        seconds = 0 if hours > 0 or days > 0 or years > 0 else seconds
-        # only show minutes when the duration is less that a day
-        minutes = 0 if days > 0 or years > 0 else minutes
-        # only show hours when the duration is less that a year
-        hours = 0 if years > 0 else hours
 
         values = locals()
-        magnitudes_str = ("{n} {magnitude}".format(n=int(values[magnitude]), magnitude=magnitude)
-                          for magnitude in ("years", "days", "hours", "minutes", "seconds") if values[magnitude] > 0)
-        return ", ".join(magnitudes_str)
+        magnitudes_str = ["{n} {magnitude}".format(n=int(values[magnitude]), magnitude=magnitude)
+                          for magnitude in ("years", "days", "hours", "minutes", "seconds") if values[magnitude] > 0]
+
+        return ", ".join(magnitudes_str[0:2])
 
     def run(self, show_quick_panel=True, current_project_only=True, selected_file=None):
         self.history_list = FileHistory.instance().get_history(current_project_only)
