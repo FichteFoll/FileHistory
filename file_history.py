@@ -3,9 +3,11 @@ import sublime_plugin
 import os
 import hashlib
 import json
-import time, datetime
+import time
+import datetime
 
 is_ST2 = int(sublime.version()) < 3000
+
 
 def plugin_loaded():
     # Force the FileHistory singleton to be instantiated so the startup tasks will be executed
@@ -34,11 +36,10 @@ class FileHistory(object):
         self.invoke_async = sublime.set_timeout if is_ST2 else sublime.set_timeout_async
 
         if self.CLEANUP_ON_STARTUP:
-            self.invoke_async(lambda: self.clean_history(False) , 0)
+            self.invoke_async(lambda: self.clean_history(False), 0)
 
         if self.DELETE_ALL_ON_STARTUP:
-            self.invoke_async(lambda: self.delete_all_history() , 0)
-
+            self.invoke_async(lambda: self.delete_all_history(), 0)
 
     def __load_settings(self):
         default_date_format = '%Y-%m-%d %H:%M:%S'
@@ -78,8 +79,8 @@ class FileHistory(object):
             sublime.save_settings(self.SETTINGS_FILE)
 
     def get_timestamp(self, filename=None):
-        if filename and os.path.exists(filename) :
-            timestamp = time.strftime(self.TIMESTAMP_FORMAT, time.localtime(os.path.getmtime(filename)) )
+        if filename and os.path.exists(filename):
+            timestamp = time.strftime(self.TIMESTAMP_FORMAT, time.localtime(os.path.getmtime(filename)))
         else:
             timestamp = time.strftime(self.TIMESTAMP_FORMAT)
         return timestamp
@@ -197,7 +198,7 @@ class FileHistory(object):
 
         # Only keep track of files that have a filename
         filename = view.file_name()
-        if filename != None:
+        if filename is not None:
             project_name = self.get_current_project_key()
             if os.path.exists(filename):
                 # Add to both the project-specific and global histories
@@ -275,7 +276,6 @@ class FileHistory(object):
                 del self.history[project_key]
             self.__save_history()
 
-
     def __clean_history(self, project_name):
         self.debug('Cleaning the "%s" history' % (project_name))
         # Only continue if this project exists
@@ -348,12 +348,13 @@ class FileHistory(object):
         self.__track_calling_view(window)
 
         # Only preview the view if the user wants to see it
-        if not self.SHOW_FILE_PREVIEW: return
+        if not self.SHOW_FILE_PREVIEW:
+            return
 
         filepath = history_entry['filename']
         if os.path.exists(filepath):
             # asyncronously open the preview (improves percieved performance)
-            self.invoke_async(lambda: self.__open_preview(window, filepath) , 0)
+            self.invoke_async(lambda: self.__open_preview(window, filepath), 0)
         else:
             # Close the last preview and remove the non-existent file from the history
             self.__close_preview(window)
@@ -364,7 +365,8 @@ class FileHistory(object):
 
     def quick_open_preview(self, window):
         """Open the file that is currently being previewed"""
-        if not self.current_history_entry: return
+        if not self.current_history_entry:
+            return
 
         # Only try to open and position the file if it is transient
         view = window.find_open_file(self.current_history_entry['filename'])
@@ -379,13 +381,13 @@ class FileHistory(object):
 
     def delete_current_entry(self):
         """Delete the history entry for the  file that is currently being previewed"""
-        if not self.current_history_entry: return
+        if not self.current_history_entry:
+            return
 
         filename = self.current_history_entry['filename']
         self.debug('Removing history entry for "%s" from project "%s"' % (filename, self.project_name))
         self.__remove(self.project_name, filename)
         self.__save_history()
-
 
     def open_history(self, window, history_entry):
         """Open the file represented by the history_entry in the provided window"""
@@ -403,13 +405,14 @@ class FileHistory(object):
         self.__clear_context()
 
     def __close_preview(self, window):
-        if not self.SHOW_FILE_PREVIEW: return
+        if not self.SHOW_FILE_PREVIEW:
+            return
 
         if self.calling_view_is_empty:
             # focusing the saved calling_view doesn't work, so close the last preview view
             window.run_command("close_file")
         else:
-            window.focus_view( self.calling_view )
+            window.focus_view(self.calling_view)
 
     def reset(self, window):
         """The user cancelled the action - give the focus back to the "calling" view and clear the context"""
@@ -417,7 +420,8 @@ class FileHistory(object):
         self.__clear_context()
 
     def is_transient_view(self, window, view):
-        if is_ST2: return False
+        if is_ST2:
+            return False
 
         return view == window.transient_view_in_group(window.active_group()) or not view
 
