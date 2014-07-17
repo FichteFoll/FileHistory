@@ -1,24 +1,3 @@
-# DONE option to cleanup the history database (json) on start
-# DONE introduce a settings file to get settings from
-# DONE [ST3] use api function (only available in ST3) to get the project name/id (rather than using a hash of the project folders)
-# DONE [ST3] preview the file while cycling through the quick panel history entries
-# DONE [ST3] support "quick open" from the quick panel (mapped by default to the "right" key)
-# DONE [ST3] removed unnecessary view settings (and associated code) by listening for the on_pre_close event rather than the on_close event
-# DONE added setting for using monospaced font in the quick panel
-# DONE fixed ST2 support
-
-# DONE Fixed bug when plugin invoked in a window without a view
-# DONE [ST2] Added support for cleanup on startup for ST2
-# DONE Improved plugin responsiveness by opening the preview in the background (noticable with large or remote files)
-# DONE Added option to display the timestamp of the history entry (either the last opened/closed timestamp or the filesystem's last modified timestamp)
-# DONE [ST3] Quick panel support for removing the history entry being previewed. Note: the entry will be deleted but will still be visible in the current quick panel. Mapped to "ctrl+delete" by default ("cmd+delete" on OSX).
-# DONE cleanup all histories, not just current project and global
-# DONE support various formatting options for the history file, including specifying the indentation size or no formatting
-
-# DONE show relative time since timestamp rather than a date
-# DONE correctly support quick panel shortcuts when not showing a preview (quick open and remove from history)
-# TODO clear the history on startup (delete all!)
-
 import sublime
 import sublime_plugin
 import os
