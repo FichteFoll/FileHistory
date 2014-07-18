@@ -1,6 +1,6 @@
 [
     {
-        "caption": "File History: Current Project: Open recently closed file",
+        "caption": "File History: Open recently closed file (Current Project)",
         "command": "open_recently_closed_file",
         "args": {
             "show_quick_panel": true,
@@ -8,7 +8,7 @@
         }
     },
     {
-        "caption": "File History: All Projects: Open recently closed file",
+        "caption": "File History: Open recently closed file (All Projects)",
         "command": "open_recently_closed_file",
         "args": {
             "show_quick_panel": true,
