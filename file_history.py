@@ -462,20 +462,34 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
 
     __is_active = False
 
-    def approximate_age(self, current_time, timestamp):
+    def approximate_age(self, current_time, timestamp, precision=2):
         # loosely based on http://codereview.stackexchange.com/questions/37285/efficient-human-readable-timedelta
         diff = current_time - datetime.datetime.strptime(timestamp, FileHistory.instance().TIMESTAMP_FORMAT)
 
         years, rem = divmod(diff.total_seconds(), 31536000)
+        # TODO months, weeks
         days, rem = divmod(rem, 86400)
         hours, rem = divmod(rem, 3600)
         minutes, seconds = divmod(rem, 60)
 
+        magnitudes = []
+        first = None
         values = locals()
-        magnitudes_str = ["{n} {magnitude}".format(n=int(values[magnitude]), magnitude=magnitude)
-                          for magnitude in ("years", "days", "hours", "minutes", "seconds") if values[magnitude] > 0]
+        for i, magnitude in enumerate(("years", "days", "hours", "minutes", "seconds")):
+            v = int(values[magnitude])
+            if v == 0:
+                continue
+            s = "%s %s" % (v, magnitude)
+            if v == 1:  # strip plural s
+                s = s[:-1]
+            # Handle precision limit
+            if first is None:
+                first = i
+            elif first + precision <= i:
+                break
+            magnitudes.append(s)
 
-        return ", ".join(magnitudes_str[0:2])
+        return ", ".join(magnitudes)
 
     def run(self, show_quick_panel=True, current_project_only=True, selected_file=None):
         self.history_list = FileHistory.instance().get_history(current_project_only)
