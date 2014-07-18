@@ -66,7 +66,7 @@ Checks the current project or the whole history for non-existent files and remov
 
 Removes all file history data.
 
-### Customization via settings file ### 
+### Customization via settings file ###
 
 **Important**: At the moment you need to restart Sublime Text after editing the [settings][settings] file (because the settings are cached by the Sublime Text API).
 
