@@ -1,4 +1,4 @@
 {
-    "install": "messages/install.txt",
+    "install": "messages/install.md",
     "1.5.0": "CHANGELOG.md"
 }
