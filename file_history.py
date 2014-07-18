@@ -466,16 +466,25 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
         # loosely based on http://codereview.stackexchange.com/questions/37285/efficient-human-readable-timedelta
         diff = current_time - datetime.datetime.strptime(timestamp, FileHistory.instance().TIMESTAMP_FORMAT)
 
-        years, rem = divmod(diff.total_seconds(), 31536000)
-        # TODO months, weeks
-        days, rem = divmod(rem, 86400)
-        hours, rem = divmod(rem, 3600)
-        minutes, seconds = divmod(rem, 60)
+        def divide(rem, mod):
+            return rem % mod, int(rem // mod)
+
+        def subtract(rem, div):
+            n = int(rem // div)
+            return n,  rem - n * div
+
+        rem = diff.total_seconds()
+        seconds, rem = divide(rem, 60)
+        minutes, rem = divide(rem, 60)
+        hours,  days = divide(rem, 24)
+        years,  days = subtract(days, 365)
+        months, days = subtract(days, 30)
+        weeks,  days = subtract(days, 7)
 
         magnitudes = []
         first = None
         values = locals()
-        for i, magnitude in enumerate(("years", "days", "hours", "minutes", "seconds")):
+        for i, magnitude in enumerate(("years", "months", "weeks", "days", "hours", "minutes", "seconds")):
             v = int(values[magnitude])
             if v == 0:
                 continue
