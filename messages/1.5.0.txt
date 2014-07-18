@@ -1,0 +1,19 @@
+v1.5.0 (2014-07-08)
+-------------------
+
+- [ST2] Added support for cleanup on startup for ST2
+- [ST3] Added shortcut to delete the currently selected history entry
+  *Note*: The entry will be deleted but will still be visible in the current
+  quick panel.
+  Mapped to "ctrl+delete" by default ("cmd+delete" on OSX).
+- Added setting and command to reset/clear all history data (#14)
+- Added option to display the timestamp of the history entry (either the last
+  opened/closed or the filesystem's last modified timestamp), relative or
+  absolute
+- When cleaning up, do not consider just current project and global (#15)
+- The history file is now "minimized" by default. You can adjust the settings
+  if you want it prettified. (#15)
+- Improved plugin responsiveness by opening the preview in the background
+  (noticable with large or remote files)
+- Fixed quick panel shortcuts not working with previewing disabled (#19)
+- Update Menu entries (#21)
