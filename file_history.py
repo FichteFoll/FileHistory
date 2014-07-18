@@ -35,11 +35,11 @@ class FileHistory(object):
 
         self.invoke_async = sublime.set_timeout if is_ST2 else sublime.set_timeout_async
 
-        if self.CLEANUP_ON_STARTUP:
-            self.invoke_async(lambda: self.clean_history(False), 0)
-
         if self.DELETE_ALL_ON_STARTUP:
             self.invoke_async(lambda: self.delete_all_history(), 0)
+        elif self.CLEANUP_ON_STARTUP:
+            self.invoke_async(lambda: self.clean_history(False), 0)
+
 
     def __load_settings(self):
         default_date_format = '%Y-%m-%d %H:%M:%S'
@@ -48,7 +48,11 @@ class FileHistory(object):
         app_settings = sublime.load_settings(self.SETTINGS_FILE)
         settings_exist = app_settings.has('history_file')
 
-        self.PRINT_DEBUG = self.__ensure_setting(app_settings, 'debug', True)
+        # TODO these settings may change during execution but are not re-fetched when that happens
+        # We either need to set this as a `settings.set_on_change` callback (will be called for any
+        # modification) or wrap settings differently.
+
+        self.PRINT_DEBUG = self.__ensure_setting(app_settings, 'debug', False)
         self.GLOBAL_MAX_ENTRIES = self.__ensure_setting(app_settings, 'global_max_entries', 100)
         self.PROJECT_MAX_ENTRIES = self.__ensure_setting(app_settings, 'project_max_entries', 50)
         self.USE_SAVED_POSITION = self.__ensure_setting(app_settings, 'use_saved_position', True)
@@ -56,7 +60,7 @@ class FileHistory(object):
         self.REMOVE_NON_EXISTENT_FILES = self.__ensure_setting(app_settings, 'remove_non_existent_files_on_preview', True)
         self.CLEANUP_ON_STARTUP = self.__ensure_setting(app_settings, 'cleanup_on_startup', True)
         self.DELETE_ALL_ON_STARTUP = self.__ensure_setting(app_settings, 'delete_all_on_startup', False)
-        history_path = self.__ensure_setting(app_settings, 'history_file', 'User/FileHistory.json')
+        history_path = self.__ensure_setting(app_settings, 'history_file', os.path.join('User', 'FileHistory.json'))
         self.HISTORY_FILE = os.path.normpath(os.path.join(sublime.packages_path(), history_path))
         self.USE_MONOSPACE = self.__ensure_setting(app_settings, 'monospace_font', False)
         self.DISPLAY_TIMESTAMPS = self.__ensure_setting(app_settings, 'display_timestamps', True)
@@ -66,9 +70,11 @@ class FileHistory(object):
         self.PRETTIFY_HISTORY = self.__ensure_setting(app_settings, 'prettify_history', False)
         self.INDENT_SIZE = 4
 
+        # Test if the specified format string is valid
         try:
-            self.get_timestamp()
-        except Exception:
+            time.strftime(self.TIMESTAMP_FORMAT)
+        except ValueError:
+            print('[FileHistory] Invalid timstamp_format string. Falling back to default.')
             self.TIMESTAMP_FORMAT = default_date_format
 
         # Ignore the file preview setting for ST2
@@ -102,6 +108,9 @@ class FileHistory(object):
             self.debug('FileHistory setting "%s" = "%s"' % (key, value))
         else:
             self.debug('FileHistory setting "%s" not found.  Using the default value of "%s"' % (key, default_value))
+            # TOCHECK I am not sure we should do this. It makes modifying default behaviour a pain because we force
+            # all users onto a custom configuration. Furthermore, I don't have documentation comments in the user
+            # file because it's rewritten all the time.
             settings.set(key, default_value)
         return value
 
@@ -140,25 +149,18 @@ class FileHistory(object):
         if not os.path.exists(self.HISTORY_FILE):
             return
 
-        f = open(self.HISTORY_FILE, 'r')
-        try:
+        with open(self.HISTORY_FILE, 'r') as f:
             updated_history = json.load(f)
-        finally:
-            f.close()
 
         self.history = updated_history
 
     def __save_history(self):
         self.debug('Saving the history to file ' + self.HISTORY_FILE)
-        f = open(self.HISTORY_FILE, mode='w+')
-        try:
+        with open(self.HISTORY_FILE, mode='w+') as f:
             history_indentation = self.INDENT_SIZE if self.PRETTIFY_HISTORY else None
 
             json.dump(self.history, f, indent=history_indentation)
-
             f.flush()
-        finally:
-            f.close()
 
     def delete_all_history(self):
         self.history = {}
@@ -490,9 +492,10 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
                     (action, timestamp) = FileHistory.instance().get_history_timestamp(node)
 
                     if FileHistory.instance().TIMESTAMP_DISPLAY_TYPE == "relative":
-                        info.append('%s ~%s ago' % (action, self.approximate_age(current_time, timestamp)))
+                        stamp = '   %s ~%s ago' % (action, self.approximate_age(current_time, timestamp))
                     else:
-                        info.append('%s on %s' % (action, timestamp))
+                        stamp = '   %s on %s' % (action, timestamp)
+                    info.append('   ' + stamp)
 
                 display_list.append(info)
             font_flag = sublime.MONOSPACE_FONT if FileHistory.instance().USE_MONOSPACE else 0
@@ -541,9 +544,11 @@ class OpenRecentlyCloseFileCommandContextHandler(sublime_plugin.EventListener):
         if key != 'file_history_overlay_visible':
             return None
 
-        if operator == sublime.OP_EQUAL:
-            return OpenRecentlyClosedFileCommand.is_active() == bool(operand)
-        elif operator == sublime.OP_NOT_EQUAL:
-            return OpenRecentlyClosedFileCommand.is_active() != bool(operand)
+        v1, v2 = OpenRecentlyClosedFileCommand.is_active(), bool(operand)
 
-        return None
+        if operator == sublime.OP_EQUAL:
+            return v1 == v2
+        elif operator == sublime.OP_NOT_EQUAL:
+            return v1 != v2
+        else:
+            return None
