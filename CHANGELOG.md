@@ -1,6 +1,12 @@
 File History Changelog
 ======================
 
+v1.5.1 (2014-07-18)
+-------------------
+
+- Fix file name of 1.5.0 changelog file (#26)
+
+
 v1.5.0 (2014-07-18)
 -------------------
 
@@ -21,20 +27,24 @@ v1.5.0 (2014-07-18)
 - Fixed quick panel shortcuts not working with previewing disabled (#19)
 - Update Menu entries (#21)
 
+
 v1.4.7 (2014-07-07)
 -------------------
 
 - Hotfix opening multiple views with the "right" key shortcut (#16)
+
 
 v1.4.6 (2014-01-23)
 -------------------
 
 - Fix preview when no views are open in the window (#13)
 
+
 v1.4.5 (2014-01-15)
 -------------------
 
 - Fix for ST2 compatibility (#12)
+
 
 v1.4.4 (2014-01-10)
 -------------------
