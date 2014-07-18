@@ -63,10 +63,10 @@ class FileHistory(object):
         history_path = self.__ensure_setting(app_settings, 'history_file', os.path.join('User', 'FileHistory.json'))
         self.HISTORY_FILE = os.path.normpath(os.path.join(sublime.packages_path(), history_path))
         self.USE_MONOSPACE = self.__ensure_setting(app_settings, 'monospace_font', False)
-        self.DISPLAY_TIMESTAMPS = self.__ensure_setting(app_settings, 'display_timestamps', True)
+        self.TIMESTAMP_SHOW = self.__ensure_setting(app_settings, 'timestamp_show', True)
         self.TIMESTAMP_FORMAT = self.__ensure_setting(app_settings, 'timestamp_format', default_date_format)
         self.TIMESTAMP_MODE = self.__ensure_setting(app_settings, 'timestamp_mode', 'history_access')
-        self.TIMESTAMP_DISPLAY_TYPE = self.__ensure_setting(app_settings, 'timestamp_display_type', 'relative')
+        self.TIMESTAMP_RELATIVE = self.__ensure_setting(app_settings, 'timestamp_relative', True)
         self.PRETTIFY_HISTORY = self.__ensure_setting(app_settings, 'prettify_history', False)
         self.INDENT_SIZE = 4
 
@@ -511,10 +511,10 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
                 info = [os.path.basename(filepath), os.path.dirname(filepath)]
 
                 # Only include the timestamp if it is there and if the user wants to see it
-                if FileHistory.instance().DISPLAY_TIMESTAMPS:
+                if FileHistory.instance().TIMESTAMP_SHOW:
                     (action, timestamp) = FileHistory.instance().get_history_timestamp(node)
 
-                    if FileHistory.instance().TIMESTAMP_DISPLAY_TYPE == "relative":
+                    if bool(FileHistory.instance().TIMESTAMP_RELATIVE):
                         stamp = '   %s ~%s ago' % (action, self.approximate_age(current_time, timestamp))
                     else:
                         stamp = '   %s on %s' % (action, timestamp)
