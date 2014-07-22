@@ -1,6 +1,12 @@
 File History Changelog
 ======================
 
+v1.5.2 (2014-07-22)
+-------------------
+
+- [ST2] Hotfix for trailing comma in Main.sublime-menu
+
+
 v1.5.1 (2014-07-18)
 -------------------
 
