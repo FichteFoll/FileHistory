@@ -40,35 +40,48 @@ class FileHistory(object):
         elif self.CLEANUP_ON_STARTUP:
             self.invoke_async(lambda: self.clean_history(False), 0)
 
-
     def __load_settings(self):
+        """Load the plugin settings from FileHistory.sublime-settings"""
+        self.app_settings = sublime.load_settings(self.SETTINGS_FILE)
+        settings_exist = self.app_settings.has('history_file')
+        self.__refresh_settings()
+
+        # The settings may change during execution so we need to listen for changes
+        self.app_settings.add_on_change(self.SETTINGS_FILE + '-reload', self.__refresh_settings)
+
+        # If the settings did not exist then save them for the user
+        if not settings_exist:
+            print('[FileHistory] Unable to find the settings file "%s".  A default settings file has been created for you.' % (self.SETTINGS_FILE))
+            sublime.save_settings(self.SETTINGS_FILE)
+
+    def __refresh_settings(self):
+        print('[FileHistory] Reloading the settings file "%s".' % (self.SETTINGS_FILE))
+
         default_date_format = '%Y-%m-%d %H:%M:%S'
 
-        """Load the plugin settings from FileHistory.sublime-settings"""
-        app_settings = sublime.load_settings(self.SETTINGS_FILE)
-        settings_exist = app_settings.has('history_file')
-
-        # TODO these settings may change during execution but are not re-fetched when that happens
-        # We either need to set this as a `settings.set_on_change` callback (will be called for any
-        # modification) or wrap settings differently.
-
-        self.PRINT_DEBUG = self.__ensure_setting(app_settings, 'debug', False)
-        self.GLOBAL_MAX_ENTRIES = self.__ensure_setting(app_settings, 'global_max_entries', 100)
-        self.PROJECT_MAX_ENTRIES = self.__ensure_setting(app_settings, 'project_max_entries', 50)
-        self.USE_SAVED_POSITION = self.__ensure_setting(app_settings, 'use_saved_position', True)
-        self.NEW_TAB_POSITION = self.__ensure_setting(app_settings, 'new_tab_position', 'next')
-        self.REMOVE_NON_EXISTENT_FILES = self.__ensure_setting(app_settings, 'remove_non_existent_files_on_preview', True)
-        self.CLEANUP_ON_STARTUP = self.__ensure_setting(app_settings, 'cleanup_on_startup', True)
-        self.DELETE_ALL_ON_STARTUP = self.__ensure_setting(app_settings, 'delete_all_on_startup', False)
-        history_path = self.__ensure_setting(app_settings, 'history_file', os.path.join('User', 'FileHistory.json'))
+        self.PRINT_DEBUG = self.__ensure_setting(self.app_settings, 'debug', False)
+        self.GLOBAL_MAX_ENTRIES = self.__ensure_setting(self.app_settings, 'global_max_entries', 100)
+        self.PROJECT_MAX_ENTRIES = self.__ensure_setting(self.app_settings, 'project_max_entries', 50)
+        self.USE_SAVED_POSITION = self.__ensure_setting(self.app_settings, 'use_saved_position', True)
+        self.NEW_TAB_POSITION = self.__ensure_setting(self.app_settings, 'new_tab_position', 'next')
+        self.REMOVE_NON_EXISTENT_FILES = self.__ensure_setting(self.app_settings, 'remove_non_existent_files_on_preview', True)
+        self.CLEANUP_ON_STARTUP = self.__ensure_setting(self.app_settings, 'cleanup_on_startup', True)
+        self.DELETE_ALL_ON_STARTUP = self.__ensure_setting(self.app_settings, 'delete_all_on_startup', False)
+        history_path = self.__ensure_setting(self.app_settings, 'history_file', os.path.join('User', 'FileHistory.json'))
         self.HISTORY_FILE = os.path.normpath(os.path.join(sublime.packages_path(), history_path))
-        self.USE_MONOSPACE = self.__ensure_setting(app_settings, 'monospace_font', False)
-        self.TIMESTAMP_SHOW = self.__ensure_setting(app_settings, 'timestamp_show', True)
-        self.TIMESTAMP_FORMAT = self.__ensure_setting(app_settings, 'timestamp_format', default_date_format)
-        self.TIMESTAMP_MODE = self.__ensure_setting(app_settings, 'timestamp_mode', 'history_access')
-        self.TIMESTAMP_RELATIVE = self.__ensure_setting(app_settings, 'timestamp_relative', True)
-        self.PRETTIFY_HISTORY = self.__ensure_setting(app_settings, 'prettify_history', False)
+        self.USE_MONOSPACE = self.__ensure_setting(self.app_settings, 'monospace_font', False)
+        self.TIMESTAMP_SHOW = self.__ensure_setting(self.app_settings, 'timestamp_show', True)
+        self.TIMESTAMP_FORMAT = self.__ensure_setting(self.app_settings, 'timestamp_format', default_date_format)
+        self.TIMESTAMP_MODE = self.__ensure_setting(self.app_settings, 'timestamp_mode', 'history_access')
+        self.TIMESTAMP_RELATIVE = self.__ensure_setting(self.app_settings, 'timestamp_relative', True)
+        self.PRETTIFY_HISTORY = self.__ensure_setting(self.app_settings, 'prettify_history', False)
         self.INDENT_SIZE = 4
+
+        # TODO implement file and folder exclusion
+        # "folder_exclude_patterns": [".svn", ".git", ".hg", "CVS"],
+        # "file_exclude_patterns": ["*.pyc", "*.pyo", "*.exe", "*.dll", "*.obj","*.o", "*.a", "*.lib", "*.so", "*.dylib", "*.ncb", "*.sdf", "*.suo", "*.pdb", "*.idb", ".DS_Store", "*.class", "*.psd", "*.db", "*.sublime-workspace"],
+
+
 
         # Test if the specified format string is valid
         try:
@@ -78,11 +91,7 @@ class FileHistory(object):
             self.TIMESTAMP_FORMAT = default_date_format
 
         # Ignore the file preview setting for ST2
-        self.SHOW_FILE_PREVIEW = False if is_ST2 else self.__ensure_setting(app_settings, 'show_file_preview', True)
-
-        if not settings_exist:
-            print('[FileHistory] Unable to find the settings file "%s".  A default settings file has been created for you.' % (self.SETTINGS_FILE))
-            sublime.save_settings(self.SETTINGS_FILE)
+        self.SHOW_FILE_PREVIEW = False if is_ST2 else self.__ensure_setting(self.app_settings, 'show_file_preview', True)
 
     def get_timestamp(self, filename=None):
         if filename and os.path.exists(filename):
@@ -105,13 +114,10 @@ class FileHistory(object):
         value = default_value
         if settings.has(key):
             value = settings.get(key)
-            self.debug('FileHistory setting "%s" = "%s"' % (key, value))
+            self.debug('Setting "%s" = "%s"' % (key, value))
         else:
-            self.debug('FileHistory setting "%s" not found.  Using the default value of "%s"' % (key, default_value))
-            # TOCHECK I am not sure we should do this. It makes modifying default behaviour a pain because we force
-            # all users onto a custom configuration. Furthermore, I don't have documentation comments in the user
-            # file because it's rewritten all the time.
-            settings.set(key, default_value)
+            # no need to persist this setting - just use the default
+            self.debug('Setting "%s" not found.  Using the default value of "%s"' % (key, default_value))
         return value
 
     def debug(self, text):
