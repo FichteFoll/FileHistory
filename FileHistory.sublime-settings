@@ -52,6 +52,16 @@
     // Should the history file be nicely formatted?
     "prettify_history": false,
 
+    // List of directory path regexs to exclude from the history tracking (not including the filename)
+    // The whole path (minus the filename) is searched for the provided pattern
+    // Note: you must use forward slashes for the path separator
+    // e.g. ["/Desktop/", "C:/Program Files/Internet Explorer/"]
+    "path_exclude_patterns": [],
+
+    // List of filename regexs to exclude from the history tracking (not including the directory part of the path)
+    // e.g. ["\.jpg"]
+    "file_exclude_patterns": [],
+
     // Print out the debug text?
     "debug": false
 }
