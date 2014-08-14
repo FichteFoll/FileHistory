@@ -5,6 +5,7 @@ import hashlib
 import json
 import time
 import datetime
+import re
 
 is_ST2 = int(sublime.version()) < 3000
 
@@ -41,46 +42,46 @@ class FileHistory(object):
             self.invoke_async(lambda: self.clean_history(False), 0)
 
     def __load_settings(self):
+        self.DEFAULT_TIMESTAMP_FORMAT = '%Y-%m-%d %H:%M:%S'
+
         """Load the plugin settings from FileHistory.sublime-settings"""
         self.app_settings = sublime.load_settings(self.SETTINGS_FILE)
-        settings_exist = self.app_settings.has('history_file')
         self.__refresh_settings()
 
         # The settings may change during execution so we need to listen for changes
-        self.app_settings.add_on_change(self.SETTINGS_FILE + '-reload', self.__refresh_settings)
-
-        # If the settings did not exist then save them for the user
-        if not settings_exist:
-            print('[FileHistory] Unable to find the settings file "%s".  A default settings file has been created for you.' % (self.SETTINGS_FILE))
-            sublime.save_settings(self.SETTINGS_FILE)
+        # (first clear out any existing callbacks)
+        callback_key = self.SETTINGS_FILE + '-reload'
+        self.app_settings.clear_on_change(callback_key)
+        self.app_settings.add_on_change(callback_key, self.__refresh_settings)
 
     def __refresh_settings(self):
         print('[FileHistory] Reloading the settings file "%s".' % (self.SETTINGS_FILE))
 
-        default_date_format = '%Y-%m-%d %H:%M:%S'
+        self.PRINT_DEBUG = self.__ensure_setting('debug', False)
+        self.GLOBAL_MAX_ENTRIES = self.__ensure_setting('global_max_entries', 100)
+        self.PROJECT_MAX_ENTRIES = self.__ensure_setting('project_max_entries', 50)
+        self.USE_SAVED_POSITION = self.__ensure_setting('use_saved_position', True)
+        self.NEW_TAB_POSITION = self.__ensure_setting('new_tab_position', 'next')
 
-        self.PRINT_DEBUG = self.__ensure_setting(self.app_settings, 'debug', False)
-        self.GLOBAL_MAX_ENTRIES = self.__ensure_setting(self.app_settings, 'global_max_entries', 100)
-        self.PROJECT_MAX_ENTRIES = self.__ensure_setting(self.app_settings, 'project_max_entries', 50)
-        self.USE_SAVED_POSITION = self.__ensure_setting(self.app_settings, 'use_saved_position', True)
-        self.NEW_TAB_POSITION = self.__ensure_setting(self.app_settings, 'new_tab_position', 'next')
-        self.REMOVE_NON_EXISTENT_FILES = self.__ensure_setting(self.app_settings, 'remove_non_existent_files_on_preview', True)
-        self.CLEANUP_ON_STARTUP = self.__ensure_setting(self.app_settings, 'cleanup_on_startup', True)
-        self.DELETE_ALL_ON_STARTUP = self.__ensure_setting(self.app_settings, 'delete_all_on_startup', False)
-        history_path = self.__ensure_setting(self.app_settings, 'history_file', os.path.join('User', 'FileHistory.json'))
+        self.REMOVE_NON_EXISTENT_FILES = self.__ensure_setting('remove_non_existent_files_on_preview', True)
+        self.CLEANUP_ON_STARTUP = self.__ensure_setting('cleanup_on_startup', True)
+        self.DELETE_ALL_ON_STARTUP = self.__ensure_setting('delete_all_on_startup', False)
+        history_path = self.__ensure_setting('history_file', os.path.join('User', 'FileHistory.json'))
+
         self.HISTORY_FILE = os.path.normpath(os.path.join(sublime.packages_path(), history_path))
-        self.USE_MONOSPACE = self.__ensure_setting(self.app_settings, 'monospace_font', False)
-        self.TIMESTAMP_SHOW = self.__ensure_setting(self.app_settings, 'timestamp_show', True)
-        self.TIMESTAMP_FORMAT = self.__ensure_setting(self.app_settings, 'timestamp_format', default_date_format)
-        self.TIMESTAMP_MODE = self.__ensure_setting(self.app_settings, 'timestamp_mode', 'history_access')
-        self.TIMESTAMP_RELATIVE = self.__ensure_setting(self.app_settings, 'timestamp_relative', True)
-        self.PRETTIFY_HISTORY = self.__ensure_setting(self.app_settings, 'prettify_history', False)
+
+        self.USE_MONOSPACE = self.__ensure_setting('monospace_font', False)
+
+        self.TIMESTAMP_SHOW = self.__ensure_setting('timestamp_show', True)
+        self.TIMESTAMP_FORMAT = self.__ensure_setting('timestamp_format', self.DEFAULT_TIMESTAMP_FORMAT)
+        self.TIMESTAMP_MODE = self.__ensure_setting('timestamp_mode', 'history_access')
+        self.TIMESTAMP_RELATIVE = self.__ensure_setting('timestamp_relative', True)
+
+        self.PRETTIFY_HISTORY = self.__ensure_setting('prettify_history', False)
         self.INDENT_SIZE = 4
 
-        # TODO implement file and folder exclusion
-        # "folder_exclude_patterns": [".svn", ".git", ".hg", "CVS"],
-        # "file_exclude_patterns": ["*.pyc", "*.pyo", "*.exe", "*.dll", "*.obj","*.o", "*.a", "*.lib", "*.so", "*.dylib", "*.ncb", "*.sdf", "*.suo", "*.pdb", "*.idb", ".DS_Store", "*.class", "*.psd", "*.db", "*.sublime-workspace"],
-
+        self.PATH_EXCLUDE_PATTERNS = self.__ensure_setting('path_exclude_patterns', [])
+        self.FILE_EXCLUDE_PATTERNS = self.__ensure_setting('file_exclude_patterns', [])
 
 
         # Test if the specified format string is valid
@@ -88,10 +89,10 @@ class FileHistory(object):
             time.strftime(self.TIMESTAMP_FORMAT)
         except ValueError:
             print('[FileHistory] Invalid timstamp_format string. Falling back to default.')
-            self.TIMESTAMP_FORMAT = default_date_format
+            self.TIMESTAMP_FORMAT = self.DEFAULT_TIMESTAMP_FORMAT
 
         # Ignore the file preview setting for ST2
-        self.SHOW_FILE_PREVIEW = False if is_ST2 else self.__ensure_setting(self.app_settings, 'show_file_preview', True)
+        self.SHOW_FILE_PREVIEW = False if is_ST2 else self.__ensure_setting('show_file_preview', True)
 
     def get_timestamp(self, filename=None):
         if filename and os.path.exists(filename):
@@ -110,10 +111,10 @@ class FileHistory(object):
             timestamp = self.get_timestamp(filepath)
         return (action, timestamp)
 
-    def __ensure_setting(self, settings, key, default_value):
+    def __ensure_setting(self, key, default_value):
         value = default_value
-        if settings.has(key):
-            value = settings.get(key)
+        if self.app_settings.has(key):
+            value = self.app_settings.get(key)
             self.debug('Setting "%s" = "%s"' % (key, value))
         else:
             # no need to persist this setting - just use the default
@@ -199,6 +200,21 @@ class FileHistory(object):
             self.history[project_name]['opened'] = []
             self.history[project_name]['closed'] = []
 
+
+    def is_suppressed(self, patterns, path, is_folder=False):
+        # Force forward slashes in the path
+        path = os.path.normpath(path).replace("\\", "/")
+        # Add a trailing slash to the path if it is a directory
+        if is_folder:
+            path = path + "/"
+
+        # Search the path for the pattern and suppress it if it matches
+        for pattern in patterns:
+            if re.search(pattern, path):
+                self.debug('File/path "%s" matches the exclusion pattern "%s"...aborting history tracking' % (path, pattern))
+                return True
+        return False
+
     def add_view(self, window, view, history_type):
         # No point adding a transient view to the history
         if self.is_transient_view(window, view):
@@ -208,7 +224,14 @@ class FileHistory(object):
         filename = view.file_name()
         if filename is not None:
             project_name = self.get_current_project_key()
-            if os.path.exists(filename):
+
+            (filename_folder, filename_file) = os.path.split(filename)
+            if self.is_suppressed(self.PATH_EXCLUDE_PATTERNS, filename_folder, True) or self.is_suppressed(self.FILE_EXCLUDE_PATTERNS, filename_file):
+                # The filename matches 'path_exclude_patterns' or 'file_exclude_patterns':
+                # Abort the history tracking and remove any references to this file from the history
+                self.__remove(project_name, filename)
+                self.__remove('global', filename)
+            elif os.path.exists(filename):
                 # Add to both the project-specific and global histories
                 (group, index) = sublime.active_window().get_view_index(view)
                 self.__add_to_history(project_name, history_type, filename, group, index)
@@ -468,9 +491,21 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
 
     __is_active = False
 
+    def timestamp_from_string(self, timestamp, current_time):
+        """try with the user-defined timestamp then try the default timestamp. If neither works, then return 0.
+            This can happen if the user changes the timestamp format setting after there are already entries in the history file"""
+        history_time = current_time
+        for format_string in [FileHistory.instance().TIMESTAMP_FORMAT, FileHistory.instance().DEFAULT_TIMESTAMP_FORMAT]:
+            try:
+                history_time = datetime.datetime.strptime(timestamp, format_string)
+                break
+            except ValueError:
+                self.debug('The timestamp "%s" does not match the format "%s"' % (timestamp, format_string))
+        return history_time
+
     def approximate_age(self, current_time, timestamp, precision=2):
         # loosely based on http://codereview.stackexchange.com/questions/37285/efficient-human-readable-timedelta
-        diff = current_time - datetime.datetime.strptime(timestamp, FileHistory.instance().TIMESTAMP_FORMAT)
+        diff = current_time - self.timestamp_from_string(timestamp, current_time)
 
         def divide(rem, mod):
             return rem % mod, int(rem // mod)
@@ -479,7 +514,11 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
             n = int(rem // div)
             return n,  rem - n * div
 
-        rem = diff.total_seconds()
+        if is_ST2:
+            rem = diff.seconds + diff.days * 24*60*60
+        else:
+            rem = diff.total_seconds()
+
         seconds, rem = divide(rem, 60)
         minutes, rem = divide(rem, 60)
         hours,  days = divide(rem, 24)
@@ -507,6 +546,10 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
         return ", ".join(magnitudes)
 
     def run(self, show_quick_panel=True, current_project_only=True, selected_file=None):
+
+        # TODO Remember the parameters so we could close and reopen the panel if needed (for example when deleting a history entry)
+
+
         self.history_list = FileHistory.instance().get_history(current_project_only)
         if show_quick_panel:
             current_time = datetime.datetime.now()
@@ -520,7 +563,9 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
                 if FileHistory.instance().TIMESTAMP_SHOW:
                     (action, timestamp) = FileHistory.instance().get_history_timestamp(node)
 
-                    if bool(FileHistory.instance().TIMESTAMP_RELATIVE):
+                    if not os.path.exists(filepath):
+                        stamp = '   file no longer exists'
+                    elif bool(FileHistory.instance().TIMESTAMP_RELATIVE):
                         stamp = '   %s ~%s ago' % (action, self.approximate_age(current_time, timestamp))
                     else:
                         stamp = '   %s on %s' % (action, timestamp)
