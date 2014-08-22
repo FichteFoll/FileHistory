@@ -58,6 +58,7 @@ class FileHistory(object):
         print('[FileHistory] Reloading the settings file "%s".' % (self.SETTINGS_FILE))
 
         self.PRINT_DEBUG = self.__ensure_setting('debug', False)
+
         self.GLOBAL_MAX_ENTRIES = self.__ensure_setting('global_max_entries', 100)
         self.PROJECT_MAX_ENTRIES = self.__ensure_setting('project_max_entries', 50)
         self.USE_SAVED_POSITION = self.__ensure_setting('use_saved_position', True)
@@ -81,7 +82,6 @@ class FileHistory(object):
         self.INDENT_SIZE = 4
 
         self.PATH_EXCLUDE_PATTERNS = self.__ensure_setting('path_exclude_patterns', [])
-        self.FILE_EXCLUDE_PATTERNS = self.__ensure_setting('file_exclude_patterns', [])
 
 
         # Test if the specified format string is valid
@@ -200,18 +200,16 @@ class FileHistory(object):
             self.history[project_name]['opened'] = []
             self.history[project_name]['closed'] = []
 
+    def is_suppressed(self, view, filename):
+        patterns = self.PATH_EXCLUDE_PATTERNS + view.settings().get("file_history", dict()).get("path_exclude_patterns", [])
 
-    def is_suppressed(self, patterns, path, is_folder=False):
-        # Force forward slashes in the path
-        path = os.path.normpath(path).replace("\\", "/")
-        # Add a trailing slash to the path if it is a directory
-        if is_folder:
-            path = path + "/"
+        # Force forward slashes in the filename
+        filename = os.path.normpath(filename).replace("\\", "/")
 
-        # Search the path for the pattern and suppress it if it matches
+        # Search the filename for the pattern and suppress it if it matches
         for pattern in patterns:
-            if re.search(pattern, path):
-                self.debug('File/path "%s" matches the exclusion pattern "%s"...aborting history tracking' % (path, pattern))
+            if re.search(pattern, filename):
+                self.debug('[X] Exclusion pattern "%s" blocks history tracking for filename "%s"' % (pattern, filename))
                 return True
         return False
 
@@ -225,10 +223,9 @@ class FileHistory(object):
         if filename is not None:
             project_name = self.get_current_project_key()
 
-            (filename_folder, filename_file) = os.path.split(filename)
-            if self.is_suppressed(self.PATH_EXCLUDE_PATTERNS, filename_folder, True) or self.is_suppressed(self.FILE_EXCLUDE_PATTERNS, filename_file):
-                # The filename matches 'path_exclude_patterns' or 'file_exclude_patterns':
-                # Abort the history tracking and remove any references to this file from the history
+            if self.is_suppressed(view, filename):
+                # If filename matches 'path_exclude_patterns' then abort the history tracking
+                # and remove any references to this file from the history
                 self.__remove(project_name, filename)
                 self.__remove('global', filename)
             elif os.path.exists(filename):
