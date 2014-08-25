@@ -54,7 +54,7 @@
 
     // List of path regexs to exclude from the history tracking
     // Note: you must use forward slashes for the path separator (regardless of platform)
-    // e.g. ["/temp/", "C:/Program Files/Internet Explorer/", "\.bak$"]
+    // e.g. ["/temp/", "C:/Program Files/Internet Explorer/", "\\.bak$"]
     "path_exclude_patterns": [],
 
     // Print out the debug text?
