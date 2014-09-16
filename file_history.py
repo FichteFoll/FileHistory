@@ -381,7 +381,7 @@ class FileHistory(object):
 
         filepath = history_entry['filename']
         if os.path.exists(filepath):
-            # asyncronously open the preview (improves percieved performance)
+            # asynchronously open the preview (improves perceived performance)
             self.invoke_async(lambda: self.__open_preview(window, filepath), 0)
         else:
             # Close the last preview and remove the non-existent file from the history
@@ -408,7 +408,7 @@ class FileHistory(object):
         self.__track_calling_view(window)
 
     def delete_current_entry(self):
-        """Delete the history entry for the  file that is currently being previewed"""
+        """Delete the history entry for the file that is currently being previewed"""
         if not self.current_history_entry:
             return
 
@@ -482,6 +482,15 @@ class DeleteFileHistoryEntryCommand(sublime_plugin.WindowCommand):
     def run(self):
         FileHistory.instance().delete_current_entry()
 
+        # Remember if we are showing the global history or the project-specific history
+        project_flag = False if FileHistory.instance().project_name == 'global' else True
+
+        # Deleting an entry from the quick panel should reopen it with the entry removed
+        # TODO recover filter text? (I don't think it is possible to get the quick-panel filter text from the API)
+        # TODO scroll to previous position? (depends on https://github.com/SublimeText/Issues/issues/222)
+        sublime.active_window().run_command('hide_overlay')
+        sublime.active_window().run_command('open_recently_closed_file', args={'current_project_only': project_flag})
+
 
 class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
     """class to either open the last closed file or show a quick panel with the recent file history (closed files first)"""
@@ -542,11 +551,7 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
 
         return ", ".join(magnitudes)
 
-    def run(self, show_quick_panel=True, current_project_only=True, selected_file=None):
-
-        # TODO Remember the parameters so we could close and reopen the panel if needed (for example when deleting a history entry)
-
-
+    def run(self, show_quick_panel=True, current_project_only=True):
         self.history_list = FileHistory.instance().get_history(current_project_only)
         if show_quick_panel:
             current_time = datetime.datetime.now()
