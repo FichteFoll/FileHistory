@@ -53,9 +53,20 @@
     "prettify_history": false,
 
     // List of path regexs to exclude from the history tracking
-    // Note: you must use forward slashes for the path separator (regardless of platform)
+    // Can be extended in project settings (in a "file_histoy" dict).
+    //
+    // Note: You must use forward slashes for the path separator (regardless of platform)
+    // and escape backslashes properly.
     // e.g. ["/temp/", "C:/Program Files/Internet Explorer/", "\\.bak$"]
     "path_exclude_patterns": [],
+
+    // List of path regexs that will re-include files that were excluded before
+    // Can be extended in project settings (in a "file_histoy" dict).
+    //
+    // Note: You must use forward slashes for the path separator (regardless of platform)
+    // and escape backslashes properly.
+    // e.g. ["/temp/", "C:/Program Files/Internet Explorer/", "\\.my\\.bak$"]
+    "path_reinclude_patterns": [],
 
     // Print out the debug text?
     "debug": false

@@ -15,6 +15,7 @@ Overview of features:
 * Optionally clean up the history on start-up
 * Optionally display the quick panel entries with a monospaced font
 * Open multiple history entries from the quick panel with the ```right``` key
+* Path exclude and re-include patterns (regex) that can be extended in project settings. 
 
 Originally obtained from a [gist][gist] by Josh Bjornson.
 
@@ -104,6 +105,25 @@ The following functionality can be customized in the [settings][settings] file:
 * `debug` - Print out the debug text to the console?
     - default value is `false`
 
+You can **extend** the `path_exclude_patterns` and `path_reinclude_patterns` in your project settings.
+
+For this, add a `"file_history"` dictionary to your project's settings and then one or both of the settings to that. Example:
+
+```json
+{
+    "folders": [
+        {
+            "path": "."
+        }
+    ],
+    "settings": {
+        "file_history": {
+            "path_exclude_patterns": ["/bin/"],
+            "path_reinclude_patterns": ["\\.compiled$"]
+        }
+    }
+}
+```
 
 [gist]: https://gist.github.com/1133602
 [github]: https://github.com/FichteFoll/sublimetext-filehistory "Github.com: FichteFoll/sublime-filehistory"

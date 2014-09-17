@@ -84,6 +84,7 @@ class FileHistory(object):
         self.INDENT_SIZE = 4
 
         self.PATH_EXCLUDE_PATTERNS = self.__ensure_setting('path_exclude_patterns', [])
+        self.PATH_REINCLUDE_PATTERNS = self.__ensure_setting('path_reinclude_patterns', [])
 
         # Test if the specified format string is valid
         try:
@@ -213,16 +214,26 @@ class FileHistory(object):
             self.history[project_name]['closed'] = []
 
     def is_suppressed(self, view, filename):
-        patterns = self.PATH_EXCLUDE_PATTERNS + view.settings().get("file_history", dict()).get("path_exclude_patterns", [])
+        override_settings = view.settings().get("file_history", dict())
+        exclude_patterns = self.PATH_EXCLUDE_PATTERNS + override_settings.get("path_exclude_patterns", [])
+        reinclude_patterns = self.PATH_REINCLUDE_PATTERNS + override_settings.get("path_reinclude_patterns", [])
 
         # Force forward slashes in the filename
         filename = os.path.normpath(filename).replace("\\", "/")
 
         # Search the filename for the pattern and suppress it if it matches
-        for pattern in patterns:
-            if re.search(pattern, filename):
-                self.debug('[X] Exclusion pattern "%s" blocks history tracking for filename "%s"' % (pattern, filename))
+        for exclude in exclude_patterns:
+            if re.search(exclude, filename):
+                self.debug('[X] Exclusion pattern "%s" blocks history tracking for filename "%s"'
+                           % (exclude, filename))
+                # See if none of out reinclude patterns nulifies the exclude
+                for reinclude in reinclude_patterns:
+                    if re.search(reinclude, filename):
+                        self.debug('[O] Inclusion pattern "%s" re-includes history tracking for filename "%s"'
+                                   % (reinclude, filename))
+                        return False
                 return True
+
         return False
 
     def add_view(self, window, view, history_type):
@@ -444,7 +455,7 @@ class FileHistory(object):
         self.debug('Opened file in group %s, index %s (based on saved group %s, index %s): %s' % (group, index, history_entry['group'], history_entry['index'], history_entry['filename']))
 
         # Add the file we just opened to the history and clear the context
-        self.add_view(window, new_view, 'opened')
+        self.invoke_async(self.add_view(window, new_view, 'opened'), 0)
         self.__clear_context()
 
     def __close_preview(self, window):
