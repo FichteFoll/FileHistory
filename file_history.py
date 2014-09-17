@@ -1,11 +1,13 @@
-import sublime
-import sublime_plugin
 import os
 import hashlib
 import json
 import time
 import datetime
 import re
+from textwrap import dedent
+
+import sublime
+import sublime_plugin
 
 is_ST2 = int(sublime.version()) < 3000
 
@@ -83,7 +85,6 @@ class FileHistory(object):
 
         self.PATH_EXCLUDE_PATTERNS = self.__ensure_setting('path_exclude_patterns', [])
 
-
         # Test if the specified format string is valid
         try:
             time.strftime(self.TIMESTAMP_FORMAT)
@@ -152,12 +153,22 @@ class FileHistory(object):
     def __load_history(self):
         self.history = {}
 
-        self.debug('Loading the history from file ' + self.HISTORY_FILE)
         if not os.path.exists(self.HISTORY_FILE):
+            self.debug("History file '%s' doesn't exist" % self.HISTORY_FILE)
             return
 
-        with open(self.HISTORY_FILE, 'r') as f:
-            updated_history = json.load(f)
+        self.debug('Loading the history from file ' + self.HISTORY_FILE)
+        try:
+            with open(self.HISTORY_FILE, 'r') as f:
+                updated_history = json.load(f)
+        except Exception as e:
+            sublime.error_message(
+                dedent("""\
+                       File History could not read your history file at '%s'.
+
+                       %s: %s""")
+                % (self.HISTORY_FILE, e.__class__.__name__, e)
+            )
 
         self.history = updated_history
 
@@ -176,6 +187,7 @@ class FileHistory(object):
     def get_history(self, current_project_only=True):
         """Return the requested history (global or project-specific): closed files followed by opened files"""
         # Make sure the history is loaded
+        # TODO: If we have loaded history previously we should cache it and not access the file system again
         if len(self.history) == 0:
             self.__load_history()
 
