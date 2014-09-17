@@ -329,6 +329,7 @@ class FileHistory(object):
 
         self.current_view = None
         self.current_history_entry = None
+        self.current_selected_index = -1
 
         self.project_name = None
 
@@ -368,8 +369,10 @@ class FileHistory(object):
             index = 0
         return (group, index)
 
-    def preview_history(self, window, history_entry):
+    def preview_history(self, window, selected_index, history_entry):
         """Preview the file if it exists, otherwise show the previous view (aka the "calling_view")"""
+        # Save the selected index for a potential reopen when an entry is deleted
+        self.current_selected_index = selected_index
         self.current_history_entry = history_entry
 
         # track the view even if we won't be previewing it (to support quick-open and remove from history quick keys)
@@ -483,13 +486,14 @@ class DeleteFileHistoryEntryCommand(sublime_plugin.WindowCommand):
         FileHistory.instance().delete_current_entry()
 
         # Remember if we are showing the global history or the project-specific history
-        project_flag = False if FileHistory.instance().project_name == 'global' else True
+        project_flag = not (FileHistory.instance().project_name == 'global')
 
         # Deleting an entry from the quick panel should reopen it with the entry removed
         # TODO recover filter text? (I don't think it is possible to get the quick-panel filter text from the API)
-        # TODO scroll to previous position? (depends on https://github.com/SublimeText/Issues/issues/222)
+        args = {'current_project_only': project_flag,
+                'selected_index': FileHistory.instance().current_selected_index}
         sublime.active_window().run_command('hide_overlay')
-        sublime.active_window().run_command('open_recently_closed_file', args={'current_project_only': project_flag})
+        sublime.active_window().run_command('open_recently_closed_file', args=args)
 
 
 class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
@@ -510,7 +514,6 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
         return history_time
 
     def approximate_age(self, current_time, timestamp, precision=2):
-        # loosely based on http://codereview.stackexchange.com/questions/37285/efficient-human-readable-timedelta
         diff = current_time - self.timestamp_from_string(timestamp, current_time)
 
         def divide(rem, mod):
@@ -521,7 +524,7 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
             return n,  rem - n * div
 
         if is_ST2:
-            rem = diff.seconds + diff.days * 24*60*60
+            rem = diff.seconds + diff.days * 24 * 60 * 60
         else:
             rem = diff.total_seconds()
 
@@ -551,7 +554,7 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
 
         return ", ".join(magnitudes)
 
-    def run(self, show_quick_panel=True, current_project_only=True):
+    def run(self, show_quick_panel=True, current_project_only=True, selected_index=-1):
         self.history_list = FileHistory.instance().get_history(current_project_only)
         if show_quick_panel:
             current_time = datetime.datetime.now()
@@ -581,7 +584,9 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
             if is_ST2:
                 self.window.show_quick_panel(display_list, self.open_file, font_flag)
             else:
-                self.window.show_quick_panel(display_list, self.open_file, font_flag, on_highlight=self.show_preview)
+                self.window.show_quick_panel(display_list, self.open_file, font_flag,
+                                             on_highlight=self.show_preview,
+                                             selected_index=selected_index)
         else:
             self.open_file(0)
 
@@ -600,7 +605,7 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
     def show_preview(self, selected_index):
         # Note: This function will never be called in ST2
         if self.is_valid(selected_index):
-            FileHistory.instance().preview_history(self.window, self.history_list[selected_index])
+            FileHistory.instance().preview_history(self.window, selected_index, self.history_list[selected_index])
 
     def open_file(self, selected_index):
         self.__class__.__is_active = False
