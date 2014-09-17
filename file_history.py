@@ -11,15 +11,14 @@ import sublime_plugin
 
 is_ST2 = int(sublime.version()) < 3000
 
-
-def plugin_loaded():
-    # Force the FileHistory singleton to be instantiated so the startup tasks will be executed
-    # Depending on the "cleanup_on_startup" setting, the history may be cleaned at startup
-    FileHistory.instance()
+invoke_async = sublime.set_timeout if is_ST2 else sublime.set_timeout_async
 
 
 class FileHistory(object):
     _instance = None
+
+    SETTINGS_CALLBACK_KEY = 'FileHistory-reload'
+    PRINT_DEBUG = False
 
     @classmethod
     def instance(cls):
@@ -31,30 +30,24 @@ class FileHistory(object):
     def __init__(self):
         """Class to manage the file-access history"""
         self.SETTINGS_FILE = 'FileHistory.sublime-settings'
-        self.PRINT_DEBUG = False
         self.__load_settings()
         self.__load_history()
         self.__clear_context()
 
-        self.invoke_async = sublime.set_timeout if is_ST2 else sublime.set_timeout_async
-
         if self.DELETE_ALL_ON_STARTUP:
-            self.invoke_async(lambda: self.delete_all_history(), 0)
+            invoke_async(lambda: self.delete_all_history(), 0)
         elif self.CLEANUP_ON_STARTUP:
-            self.invoke_async(lambda: self.clean_history(False), 0)
+            invoke_async(lambda: self.clean_history(False), 0)
 
     def __load_settings(self):
-        self.DEFAULT_TIMESTAMP_FORMAT = '%Y-%m-%d %H:%M:%S'
-
         """Load the plugin settings from FileHistory.sublime-settings"""
+
+        self.DEFAULT_TIMESTAMP_FORMAT = '%Y-%m-%d %H:%M:%S'
         self.app_settings = sublime.load_settings(self.SETTINGS_FILE)
         self.__refresh_settings()
 
         # The settings may change during execution so we need to listen for changes
-        # (first clear out any existing callbacks)
-        callback_key = self.SETTINGS_FILE + '-reload'
-        self.app_settings.clear_on_change(callback_key)
-        self.app_settings.add_on_change(callback_key, self.__refresh_settings)
+        self.app_settings.add_on_change(self.SETTINGS_CALLBACK_KEY, self.__refresh_settings)
 
     def __refresh_settings(self):
         print('[FileHistory] Reloading the settings file "%s".' % (self.SETTINGS_FILE))
@@ -408,7 +401,7 @@ class FileHistory(object):
         filepath = history_entry['filename']
         if os.path.exists(filepath):
             # asynchronously open the preview (improves perceived performance)
-            self.invoke_async(lambda: self.__open_preview(window, filepath), 0)
+            invoke_async(lambda: self.__open_preview(window, filepath), 0)
         else:
             # Close the last preview and remove the non-existent file from the history
             self.__close_preview(window)
@@ -455,7 +448,7 @@ class FileHistory(object):
         self.debug('Opened file in group %s, index %s (based on saved group %s, index %s): %s' % (group, index, history_entry['group'], history_entry['index'], history_entry['filename']))
 
         # Add the file we just opened to the history and clear the context
-        self.invoke_async(self.add_view(window, new_view, 'opened'), 0)
+        invoke_async(self.add_view(window, new_view, 'opened'), 0)
         self.__clear_context()
 
     def __close_preview(self, window):
@@ -656,3 +649,17 @@ class OpenRecentlyCloseFileCommandContextHandler(sublime_plugin.EventListener):
             return v1 != v2
         else:
             return None
+
+
+def plugin_loaded():
+    # Force the FileHistory singleton to be instantiated so the startup tasks will be executed
+    # Depending on the "cleanup_on_startup" setting, the history may be cleaned at startup
+    FileHistory.instance()
+
+
+def plugin_unloaded():
+    # Unregister our on_change callback
+    FileHistory.instance().app_settings.clear_on_change(FileHistory.SETTINGS_CALLBACK_KEY)
+
+# ST2 backwards (and don't call it twice in ST3)
+unload_handler = plugin_unloaded if is_ST2 else lambda: None
