@@ -156,6 +156,7 @@ class FileHistory(object):
             with open(self.HISTORY_FILE, 'r') as f:
                 updated_history = json.load(f)
         except Exception as e:
+            updated_history = {}
             sublime.error_message(
                 dedent("""\
                        File History could not read your history file at '%s'.
@@ -500,6 +501,9 @@ class QuickOpenFileHistoryCommand(sublime_plugin.WindowCommand):
 class DeleteFileHistoryEntryCommand(sublime_plugin.WindowCommand):
     def run(self):
         FileHistory.instance().delete_current_entry()
+
+        # Make sure the selected index compensates for the deleted entry
+        FileHistory.instance().current_selected_index = FileHistory.instance().current_selected_index - 1
 
         # Remember if we are showing the global history or the project-specific history
         project_flag = not (FileHistory.instance().project_name == 'global')
