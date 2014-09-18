@@ -69,7 +69,11 @@
     // and escape backslashes properly.
     // e.g. ["/temp/", "C:/Program Files/Internet Explorer/", "\\.my\\.bak$"]
     "path_reinclude_patterns": [],
-
+    
+    // The number of daily backups to keep (backup is saved the first time the history is modified)
+    // To turn off backups, change this setting to 0 (zero).
+    "max_backup_count": 3,
+    
     // Print out debug text?
     "debug": false
 }
