@@ -4,6 +4,8 @@ import json
 import time
 import datetime
 import re
+import shutil
+import glob
 from textwrap import dedent
 
 import sublime
@@ -19,6 +21,7 @@ class FileHistory(object):
 
     SETTINGS_CALLBACK_KEY = 'FileHistory-reload'
     PRINT_DEBUG = False
+    SETTINGS_FILE = 'FileHistory.sublime-settings'
 
     @classmethod
     def instance(cls):
@@ -29,7 +32,6 @@ class FileHistory(object):
 
     def __init__(self):
         """Class to manage the file-access history"""
-        self.SETTINGS_FILE = 'FileHistory.sublime-settings'
         self.__load_settings()
         self.__load_history()
         self.__clear_context()
@@ -74,10 +76,12 @@ class FileHistory(object):
         self.TIMESTAMP_RELATIVE = self.__ensure_setting('timestamp_relative', True)
 
         self.PRETTIFY_HISTORY = self.__ensure_setting('prettify_history', False)
-        self.INDENT_SIZE = 4
+        self.INDENT_SIZE = 2
 
         self.PATH_EXCLUDE_PATTERNS = self.__ensure_setting('path_exclude_patterns', [])
         self.PATH_REINCLUDE_PATTERNS = self.__ensure_setting('path_reinclude_patterns', [])
+
+        self.MAX_BACKUP_COUNT = self.__ensure_setting('max_backup_count', 3)
 
         # Test if the specified format string is valid
         try:
@@ -174,6 +178,30 @@ class FileHistory(object):
 
             json.dump(self.history, f, indent=history_indentation)
             f.flush()
+
+        invoke_async(lambda: self.__manage_backups(), 0)
+
+    def __manage_backups(self):
+        # Only keep backups if the user wants them
+        if self.MAX_BACKUP_COUNT <= 0:
+            return
+
+        # Make sure there is a backup of the history for today
+        (root, ext) = os.path.splitext(self.HISTORY_FILE)
+        datestamp = time.strftime('%Y%m%d')
+        backup = '%s_%s%s' % (root, datestamp, ext)
+        if not os.path.exists(backup):
+            self.debug('Backing up the history file for %s' % datestamp)
+            shutil.copy(self.HISTORY_FILE, backup)
+        else:
+            self.debug('Skipping: a backup already exists for %s' % datestamp)
+
+        # Limit the number of backup files to keep
+        listing = sorted(glob.glob('%s_*%s' % (root, ext)), reverse=True)
+        if len(listing) > self.MAX_BACKUP_COUNT:
+            for discard_file in listing[self.MAX_BACKUP_COUNT:]:
+                self.debug('Discarding old backup %s' % discard_file)
+                os.remove(discard_file)
 
     def delete_all_history(self):
         self.history = {}
