@@ -22,6 +22,8 @@ class FileHistory(object):
     SETTINGS_CALLBACK_KEY = 'FileHistory-reload'
     PRINT_DEBUG = False
     SETTINGS_FILE = 'FileHistory.sublime-settings'
+    INDENT_SIZE = 2
+    DEFAULT_TIMESTAMP_FORMAT = '%Y-%m-%d %H:%M:%S'
 
     @classmethod
     def instance(cls):
@@ -44,7 +46,6 @@ class FileHistory(object):
     def __load_settings(self):
         """Load the plugin settings from FileHistory.sublime-settings"""
 
-        self.DEFAULT_TIMESTAMP_FORMAT = '%Y-%m-%d %H:%M:%S'
         self.app_settings = sublime.load_settings(self.SETTINGS_FILE)
         self.__refresh_settings()
 
@@ -76,7 +77,6 @@ class FileHistory(object):
         self.TIMESTAMP_RELATIVE = self.__ensure_setting('timestamp_relative', True)
 
         self.PRETTIFY_HISTORY = self.__ensure_setting('prettify_history', False)
-        self.INDENT_SIZE = 2
 
         self.PATH_EXCLUDE_PATTERNS = self.__ensure_setting('path_exclude_patterns', [])
         self.PATH_REINCLUDE_PATTERNS = self.__ensure_setting('path_reinclude_patterns', [])
@@ -193,8 +193,6 @@ class FileHistory(object):
         if not os.path.exists(backup):
             self.debug('Backing up the history file for %s' % datestamp)
             shutil.copy(self.HISTORY_FILE, backup)
-        else:
-            self.debug('Skipping: a backup already exists for %s' % datestamp)
 
         # Limit the number of backup files to keep
         listing = sorted(glob.glob('%s_*%s' % (root, ext)), reverse=True)
@@ -529,9 +527,6 @@ class QuickOpenFileHistoryCommand(sublime_plugin.WindowCommand):
 class DeleteFileHistoryEntryCommand(sublime_plugin.WindowCommand):
     def run(self):
         FileHistory.instance().delete_current_entry()
-
-        # Make sure the selected index compensates for the deleted entry
-        FileHistory.instance().current_selected_index = FileHistory.instance().current_selected_index - 1
 
         # Remember if we are showing the global history or the project-specific history
         project_flag = not (FileHistory.instance().project_name == 'global')
