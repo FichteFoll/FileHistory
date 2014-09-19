@@ -1,6 +1,20 @@
 File History Changelog
 ======================
 
+v1.6.0 (2014-09-19)
+-------------------
+
+- Adapt to changes made to the `FileHistory.sublime-settings` file (#25)
+- Don't update the settings file when values are missing, just silently use the defaults (#25)
+- Support `path_exclude_patterns` setting to exclude files from being tracked in the history (basically a filename pattern blacklist) (#22) 
+- Support `path_reinclude_patterns` setting to re-include files that were excluded before (basically a filename pattern whitelist) (#22) 
+- Deleting from quickpanel should reopen with an updated list and the next entry selected (#24)
+- Catch exception when loading history file fails (#27)
+- Support for storing daily backups of the history file. See `max_backup_count` setting (#27)
+- Bug fix: Cannot open multiple files within the same palette if the file is opened in a different group (#23)
+- Some refactoring
+
+
 v1.5.2 (2014-07-22)
 -------------------
 
