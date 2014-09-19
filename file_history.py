@@ -645,16 +645,35 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
     def is_valid(self, selected_index):
         return selected_index >= 0 and selected_index < len(self.history_list)
 
+    def get_view_from_another_group(self, selected_index):
+        open_view = self.window.find_open_file(self.history_list[selected_index]['filename'])
+        if open_view:
+            calling_group = FileHistory.instance().calling_view_index[0]
+            preview_group = self.window.get_view_index(open_view)[0]
+            if preview_group != calling_group:
+                return open_view
+        return None
+
     def show_preview(self, selected_index):
         # Note: This function will never be called in ST2
         if self.is_valid(selected_index):
-            FileHistory.instance().preview_history(self.window, selected_index, self.history_list[selected_index])
+            # A bug in SublimeText will cause the quick-panel to unexpectedly close trying to show the preview
+            # for a file that is already open in a different group, so simply don't display the preview for these files
+            if self.get_view_from_another_group(selected_index):
+                pass
+            else:
+                FileHistory.instance().preview_history(self.window, selected_index, self.history_list[selected_index])
 
     def open_file(self, selected_index):
         self.__class__.__is_active = False
 
         if self.is_valid(selected_index):
-            FileHistory.instance().open_history(self.window, self.history_list[selected_index])
+            # If the file is open in another group then simply give focus to that view, otherwise open the file
+            open_view = self.get_view_from_another_group(selected_index)
+            if open_view:
+                self.window.focus_view(open_view)
+            else:
+                FileHistory.instance().open_history(self.window, self.history_list[selected_index])
         else:
             # The user cancelled the action
             FileHistory.instance().reset(self.window)
