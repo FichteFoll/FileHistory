@@ -1,6 +1,5 @@
 {
     // Path to store the history entries in (relative to the sublime packages path)
-    // Default value is:  "User/FileHistory.json"
     "history_file": "User/FileHistory.json",
 
     // Maximum number of history entries we should keep (older entries truncated)
@@ -13,7 +12,8 @@
     "use_saved_position": true,
 
     // Which position to open a file at when the saved index in no longer valid
-    // "next", "first", "last"
+    //
+    // Options: "next", "first", "last"
     "new_tab_position": "next",
 
     // Should we show a preview of the history entries?
@@ -25,24 +25,26 @@
     // If a cleanup of the history should be run on startup
     "cleanup_on_startup": true,
 
-    // Should the history be reset on startup 
+    // Should the history be reset on startup?
+    //
     // BE CAREFUL, this will DELETE ALL of your history entries
     "delete_all_on_startup": false,
-    
-    // Should a monospace be used in the quick panel?
+
+    // Should a monospace font be used in the quick panel?
     "monospace_font": false,
-    
+
     // Should the last accessed timestamp be shown in the quick panel?
     "display_timestamps": true,
 
-    // Format the timestamp should be added to the history entry
-    "timestamp_format": "%Y-%m-%d @ %H:%M:%S",
-
     // How to display the timestamp:
-    // "relative": how long since the access, e.g. 2 days, 5 hours, 7 seconds
+    // "relative": how long since the access, e.g. '2 days, 5 hours'
     // "absolute": the date and time of the last access
-    // Please note that the "relative" option can cause a delay in the quick panel popping up
+    //
+    // Please note that the "relative" option can cause a delay in the quick panel popping up.
     "timestamp_display_type": "relative",
+
+    // Format of the absolute timestamp that should be added to the history entry
+    "timestamp_format": "%Y-%m-%d @ %H:%M:%S",
 
     // Which timestamp to display?
     // "history_access" - last opened/closed timestamp
@@ -52,6 +54,26 @@
     // Should the history file be nicely formatted?
     "prettify_history": false,
 
-    // Print out the debug text?
+    // List of path regexs to exclude from the history tracking
+    // Can be extended in project settings (in a "file_histoy" dict).
+    //
+    // Note: You must use forward slashes for the path separator (regardless of platform)
+    // and escape backslashes properly.
+    // e.g. ["/temp/", "C:/Program Files/Internet Explorer/", "\\.bak$"]
+    "path_exclude_patterns": [],
+
+    // List of path regexs that will re-include files that were excluded before
+    // Can be extended in project settings (in a "file_histoy" dict).
+    //
+    // Note: You must use forward slashes for the path separator (regardless of platform)
+    // and escape backslashes properly.
+    // e.g. ["/temp/", "C:/Program Files/Internet Explorer/", "\\.my\\.bak$"]
+    "path_reinclude_patterns": [],
+    
+    // The number of daily backups to keep (backup is saved the first time the history is modified)
+    // To turn off backups, change this setting to 0 (zero).
+    "max_backup_count": 3,
+    
+    // Print out debug text?
     "debug": false
 }
