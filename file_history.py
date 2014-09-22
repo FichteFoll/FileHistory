@@ -553,7 +553,7 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
                 history_time = datetime.datetime.strptime(timestamp, format_string)
                 break
             except ValueError:
-                self.debug('The timestamp "%s" does not match the format "%s"' % (timestamp, format_string))
+                FileHistory.instance().debug('The timestamp "%s" does not match the format "%s"' % (timestamp, format_string))
         return history_time
 
     def approximate_age(self, current_time, timestamp, precision=2):
