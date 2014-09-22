@@ -1,6 +1,10 @@
 File History Changelog
 ======================
 
+v1.6.1 (2014-09-22)
+-------------------
+- Bug fix: incorrect code when logging bad date format (#28)
+
 v1.6.0 (2014-09-19)
 -------------------
 
