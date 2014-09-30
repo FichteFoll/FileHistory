@@ -15,8 +15,20 @@ is_ST2 = int(sublime.version()) < 3000
 invoke_async = sublime.set_timeout if is_ST2 else sublime.set_timeout_async
 
 
+# Metaclass for singletons
+class Singleton(type):
+    def __init__(cls, name, bases, dict):
+        super(Singleton, cls).__init__(name, bases, dict)
+        cls._instance = None
+
+    def __call__(cls, *args, **kw):
+        if cls._instance is None:
+            cls._instance = super(Singleton, cls).__call__(*args, **kw)
+        return cls._instance
+
+
 class FileHistory(object):
-    _instance = None
+    __metaclass__ = Singleton
 
     SETTINGS_CALLBACK_KEY = 'FileHistory-reload'
     PRINT_DEBUG = False
@@ -24,13 +36,6 @@ class FileHistory(object):
     INDENT_SIZE = 2
     DEFAULT_TIMESTAMP_FORMAT = '%Y-%m-%d @ %H:%M:%S'
     OLD_DEFAULT_TIMESTAMP_FORMAT = '%Y-%m-%d %H:%M:%S'
-
-    @classmethod
-    def instance(cls):
-        """Basic singleton implementation"""
-        if not cls._instance:
-            cls._instance = cls()
-        return cls._instance
 
     def __init__(self):
         """Class to manage the file-access history"""
@@ -538,38 +543,38 @@ class FileHistory(object):
 class OpenRecentlyClosedFileEvent(sublime_plugin.EventListener):
     """class to keep a history of the files that have been opened and closed"""
     def on_pre_close(self, view):
-        FileHistory.instance().add_view(sublime.active_window(), view, 'closed')
+        FileHistory().add_view(sublime.active_window(), view, 'closed')
 
     def on_load(self, view):
-        FileHistory.instance().add_view(sublime.active_window(), view, 'opened')
+        FileHistory().add_view(sublime.active_window(), view, 'opened')
 
 
 class CleanupFileHistoryCommand(sublime_plugin.WindowCommand):
     def run(self, current_project_only=True):
-        FileHistory.instance().clean_history(current_project_only)
+        FileHistory().clean_history(current_project_only)
 
 
 class ResetFileHistoryCommand(sublime_plugin.WindowCommand):
     def run(self):
-        FileHistory.instance().delete_all_history()
+        FileHistory().delete_all_history()
 
 
 class QuickOpenFileHistoryCommand(sublime_plugin.WindowCommand):
     def run(self):
-        FileHistory.instance().quick_open_preview(sublime.active_window())
+        FileHistory().quick_open_preview(sublime.active_window())
 
 
 class DeleteFileHistoryEntryCommand(sublime_plugin.WindowCommand):
     def run(self):
-        FileHistory.instance().delete_current_entry()
+        FileHistory().delete_current_entry()
 
         # Remember if we are showing the global history or the project-specific history
-        project_flag = not (FileHistory.instance().project_name == 'global')
+        project_flag = not (FileHistory().project_name == 'global')
 
         # Deleting an entry from the quick panel should reopen it with the entry removed
         # TODO recover filter text? (I don't think it is possible to get the quick-panel filter text from the API)
         args = {'current_project_only': project_flag,
-                'selected_index': FileHistory.instance().current_selected_index}
+                'selected_index': FileHistory().current_selected_index}
         sublime.active_window().run_command('hide_overlay')
         sublime.active_window().run_command('open_recently_closed_file', args=args)
 
@@ -632,7 +637,7 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
             return self.history_list[key][index]
 
     def run(self, show_quick_panel=True, current_project_only=True, selected_index=-1):
-        self.history_list = FileHistory.instance().get_history(current_project_only)
+        self.history_list = FileHistory().get_history(current_project_only)
         if show_quick_panel:
             # Prepare the display list with the file name and path separated
             display_list = []
@@ -642,21 +647,21 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
                     info = [os.path.basename(filepath), os.path.dirname(filepath)]
 
                     # Only include the timestamp if it is there and if the user wants to see it
-                    if FileHistory.instance().TIMESTAMP_SHOW:
+                    if FileHistory().TIMESTAMP_SHOW:
                         if not os.path.exists(filepath):
                             stamp = 'file no longer exists'
                         else:
-                            (action, timestamp) = FileHistory.instance().get_history_timestamp(entry, key)
+                            (action, timestamp) = FileHistory().get_history_timestamp(entry, key)
                             if not timestamp:
                                 stamp = ''
-                            elif bool(FileHistory.instance().TIMESTAMP_RELATIVE):
+                            elif bool(FileHistory().TIMESTAMP_RELATIVE):
                                 stamp = '%s ~%s ago' % (action, self.approximate_age(timestamp))
                             else:
                                 stamp = '%s on %s' % (action, time.strftime(self.TIMESTAMP_FORMAT, timestamp))
                         info.append((' ' * 6) + stamp)
 
                     display_list.append(info)
-            font_flag = sublime.MONOSPACE_FONT if FileHistory.instance().USE_MONOSPACE else 0
+            font_flag = sublime.MONOSPACE_FONT if FileHistory().USE_MONOSPACE else 0
 
             self.__class__.__is_active = True
 
@@ -681,7 +686,7 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
     def get_view_from_another_group(self, selected_entry):
         open_view = self.window.find_open_file(selected_entry['filename'])
         if open_view:
-            calling_group = FileHistory.instance().calling_view_index[0]
+            calling_group = FileHistory().calling_view_index[0]
             preview_group = self.window.get_view_index(open_view)[0]
             if preview_group != calling_group:
                 return open_view
@@ -696,7 +701,7 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
             if self.get_view_from_another_group(selected_entry):
                 pass
             else:
-                FileHistory.instance().preview_history(self.window, selected_index, selected_entry)
+                FileHistory().preview_history(self.window, selected_index, selected_entry)
 
     def open_file(self, selected_index):
         self.__class__.__is_active = False
@@ -708,10 +713,10 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
             if open_view:
                 self.window.focus_view(open_view)
             else:
-                FileHistory.instance().open_history(self.window, selected_entry)
+                FileHistory().open_history(self.window, selected_entry)
         else:
             # The user cancelled the action
-            FileHistory.instance().reset(self.window)
+            FileHistory().reset(self.window)
 
         self.history_list = {}
 
@@ -735,12 +740,12 @@ class OpenRecentlyCloseFileCommandContextHandler(sublime_plugin.EventListener):
 def plugin_loaded():
     # Force the FileHistory singleton to be instantiated so the startup tasks will be executed
     # Depending on the "cleanup_on_startup" setting, the history may be cleaned at startup
-    FileHistory.instance()
+    FileHistory()
 
 
 def plugin_unloaded():
     # Unregister our on_change callback
-    FileHistory.instance().app_settings.clear_on_change(FileHistory.SETTINGS_CALLBACK_KEY)
+    FileHistory().app_settings.clear_on_change(FileHistory.SETTINGS_CALLBACK_KEY)
 
 # ST2 backwards (and don't call it twice in ST3)
 unload_handler = plugin_unloaded if is_ST2 else lambda: None
