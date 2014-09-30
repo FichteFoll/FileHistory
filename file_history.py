@@ -345,22 +345,16 @@ class FileHistory(object):
                     self.history[project_name][history_type].remove(node)
 
     def clean_history(self, current_project_only):
-        self.__clean_history(self.get_current_project_key())
-
+        if current_project_only:
+            self.__clean_history(self.get_current_project_key())
         # If requested, also clean-up the global history
-        if not current_project_only:
-            self.__clean_history('global')
-
+        else:
             # clean all projects and remove any orphaned projects
             orphan_list = []
             for project_key in self.history:
-                # skip the global project and the current one (that was just cleaned above)
-                if project_key in ('global', self.get_current_project_key()):
-                    continue
-
                 # clean the project or remove it (if it no longer exists)
                 # The ST2 version uses md5 hashes for the project keys, so we can never know if a project is orphaned
-                if not is_ST2 and not os.path.exists(project_key):
+                if not is_ST2 and not project_key == 'global' and not os.path.exists(project_key):
                     # queue the orphaned project for deletion
                     orphan_list.append(project_key)
                 else:
