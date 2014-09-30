@@ -22,7 +22,8 @@ class FileHistory(object):
     PRINT_DEBUG = False
     SETTINGS_FILE = 'FileHistory.sublime-settings'
     INDENT_SIZE = 2
-    DEFAULT_TIMESTAMP_FORMAT = '%Y-%m-%d %H:%M:%S'
+    DEFAULT_TIMESTAMP_FORMAT = '%Y-%m-%d @ %H:%M:%S'
+    OLD_DEFAULT_TIMESTAMP_FORMAT = '%Y-%m-%d %H:%M:%S'
 
     @classmethod
     def instance(cls):
@@ -105,7 +106,10 @@ class FileHistory(object):
 
     def timestamp_from_string(self, timestamp):
         """try with the user-defined timestamp then try the default timestamp."""
-        formats = set((self.TIMESTAMP_FORMAT, self.DEFAULT_TIMESTAMP_FORMAT))
+        # Use a set to catch duplicates
+        formats = set((self.TIMESTAMP_FORMAT,
+                       self.DEFAULT_TIMESTAMP_FORMAT,
+                       self.OLD_DEFAULT_TIMESTAMP_FORMAT))
         for format_string in formats:
             try:
                 history_time = time.strptime(timestamp, format_string)
