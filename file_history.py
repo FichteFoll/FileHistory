@@ -365,7 +365,9 @@ class FileHistory(object):
             for project_key in orphan_list:
                 self.debug('Removing orphaned project "%s" from the history' % project_key)
                 del self.history[project_key]
-            self.__save_history()
+
+        # Save history
+        self.__save_history()
 
     def __clean_history(self, project_name):
         self.debug('Cleaning the "%s" history' % (project_name))
@@ -381,7 +383,6 @@ class FileHistory(object):
                     self.debug('Removing non-existent file from project "%s": %s' % (project_name, node['filename']))
                     self.history[project_name][history_type].remove(node)
 
-        self.__save_history()
         sublime.status_message("File history cleaned")
 
     def __clear_context(self):
