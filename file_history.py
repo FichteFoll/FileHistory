@@ -677,11 +677,8 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
 
         return cls.__is_active
 
-    def is_valid(self, selected_index):
-        return bool(self.get_history_index(selected_index))
-
-    def get_view_from_another_group(self, selected_index):
-        open_view = self.window.find_open_file(self.get_history_index(selected_index)['filename'])
+    def get_view_from_another_group(self, selected_entry):
+        open_view = self.window.find_open_file(selected_entry['filename'])
         if open_view:
             calling_group = FileHistory.instance().calling_view_index[0]
             preview_group = self.window.get_view_index(open_view)[0]
@@ -691,24 +688,26 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
 
     def show_preview(self, selected_index):
         # Note: This function will never be called in ST2
-        if self.is_valid(selected_index):
+        selected_entry = self.get_history_index(selected_index)
+        if selected_entry:
             # A bug in SublimeText will cause the quick-panel to unexpectedly close trying to show the preview
             # for a file that is already open in a different group, so simply don't display the preview for these files
-            if self.get_view_from_another_group(selected_index):
+            if self.get_view_from_another_group(selected_entry):
                 pass
             else:
-                FileHistory.instance().preview_history(self.window, selected_index, self.get_history_index(selected_index))
+                FileHistory.instance().preview_history(self.window, selected_index, selected_entry)
 
     def open_file(self, selected_index):
         self.__class__.__is_active = False
 
-        if self.is_valid(selected_index):
+        selected_entry = self.get_history_index(selected_index)
+        if selected_entry:
             # If the file is open in another group then simply give focus to that view, otherwise open the file
-            open_view = self.get_view_from_another_group(selected_index)
+            open_view = self.get_view_from_another_group(selected_entry)
             if open_view:
                 self.window.focus_view(open_view)
             else:
-                FileHistory.instance().open_history(self.window, self.get_history_index(selected_index))
+                FileHistory.instance().open_history(self.window, selected_entry)
         else:
             # The user cancelled the action
             FileHistory.instance().reset(self.window)
