@@ -93,11 +93,10 @@ class FileHistory(object):
         # Ignore the file preview setting for ST2
         self.SHOW_FILE_PREVIEW = False if is_ST2 else self.__ensure_setting('show_file_preview', True)
 
-    def get_history_timestamp(self, history_entry):
-        action, timestamp = None, None
+    def get_history_timestamp(self, history_entry, action):
+        timestamp = None
         filepath = history_entry['filename']
         if 'timestamp' in history_entry and self.TIMESTAMP_MODE == 'history_access':
-            action = history_entry['action'] if 'action' in history_entry else 'accessed'
             timestamp = history_entry['timestamp']
         elif filepath and os.path.exists(filepath):
             action = 'modified'
@@ -179,7 +178,10 @@ class FileHistory(object):
             )
         self.history = updated_history
 
+        # Do cleanup on the history file
         self.__ensure_project('global')
+        trigger_save = False
+
         # Migrate old formatted timestamps and convert to POSIX
         hlist = updated_history['global']['closed'] or updated_history['global']['opened']
         if hlist and 'timestamp' in hlist[0] and not isinstance(hlist[0]['timestamp'], int):
@@ -194,6 +196,18 @@ class FileHistory(object):
                                 del entry['timestamp']
                             else:
                                 entry['timestamp'] = new_stamp
+            trigger_save = True
+        # Remove actions keys
+        if hlist and 'action' in hlist[0]:
+            self.debug("Found an old-style action field. Cleaning up")
+            trigger_save = True
+            for project in updated_history.values():
+                for key in ('closed', 'opened'):
+                    for entry in project[key]:
+                        if 'action' in entry:
+                            del entry['action']
+
+        if trigger_save:
             # Save the changes
             self.__save_history()
 
@@ -247,7 +261,7 @@ class FileHistory(object):
         # Return the list of closed and opened files
         if self.project_name in self.history:
             # Note that a copy of the list must be returned
-            return self.history[self.project_name]['closed'] + self.history[self.project_name]['opened']
+            return self.history[self.project_name].copy()
         else:
             self.debug('WARN: Project %s could not be found in the file history list - returning an empty history list' % (self.project_name))
             return []
@@ -604,30 +618,44 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
 
         return ", ".join(magnitudes)
 
+    def get_history_by_index(self, index):
+        if index < 0:
+            return
+        closed_len = len(self.history_list['closed'])
+        if index <= closed_len:
+            key = 'closed'
+        else:
+            index -= closed_len
+            key = 'opened'
+
+        if index <= len(self.history_list[key]):
+            return self.history_list[key][index]
+
     def run(self, show_quick_panel=True, current_project_only=True, selected_index=-1):
         self.history_list = FileHistory.instance().get_history(current_project_only)
         if show_quick_panel:
             # Prepare the display list with the file name and path separated
             display_list = []
-            for entry in self.history_list:
-                filepath = entry['filename']
-                info = [os.path.basename(filepath), os.path.dirname(filepath)]
+            for key in ('closed', 'opened'):
+                for entry in self.history_list[key]:
+                    filepath = entry['filename']
+                    info = [os.path.basename(filepath), os.path.dirname(filepath)]
 
-                # Only include the timestamp if it is there and if the user wants to see it
-                if FileHistory.instance().TIMESTAMP_SHOW:
-                    if not os.path.exists(filepath):
-                        stamp = 'file no longer exists'
-                    else:
-                        (action, timestamp) = FileHistory.instance().get_history_timestamp(entry)
-                        if not timestamp:
-                            stamp = ''
-                        elif bool(FileHistory.instance().TIMESTAMP_RELATIVE):
-                            stamp = '%s ~%s ago' % (action, self.approximate_age(timestamp))
+                    # Only include the timestamp if it is there and if the user wants to see it
+                    if FileHistory.instance().TIMESTAMP_SHOW:
+                        if not os.path.exists(filepath):
+                            stamp = 'file no longer exists'
                         else:
-                            stamp = '%s on %s' % (action, time.strftime(self.TIMESTAMP_FORMAT, timestamp))
-                    info.append((' ' * 6) + stamp)
+                            (action, timestamp) = FileHistory.instance().get_history_timestamp(entry, key)
+                            if not timestamp:
+                                stamp = ''
+                            elif bool(FileHistory.instance().TIMESTAMP_RELATIVE):
+                                stamp = '%s ~%s ago' % (action, self.approximate_age(timestamp))
+                            else:
+                                stamp = '%s on %s' % (action, time.strftime(self.TIMESTAMP_FORMAT, timestamp))
+                        info.append((' ' * 6) + stamp)
 
-                display_list.append(info)
+                    display_list.append(info)
             font_flag = sublime.MONOSPACE_FONT if FileHistory.instance().USE_MONOSPACE else 0
 
             self.__class__.__is_active = True
@@ -650,11 +678,8 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
 
         return cls.__is_active
 
-    def is_valid(self, selected_index):
-        return selected_index >= 0 and selected_index < len(self.history_list)
-
-    def get_view_from_another_group(self, selected_index):
-        open_view = self.window.find_open_file(self.history_list[selected_index]['filename'])
+    def get_view_from_another_group(self, selected_entry):
+        open_view = self.window.find_open_file(selected_entry['filename'])
         if open_view:
             calling_group = FileHistory.instance().calling_view_index[0]
             preview_group = self.window.get_view_index(open_view)[0]
@@ -664,24 +689,26 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
 
     def show_preview(self, selected_index):
         # Note: This function will never be called in ST2
-        if self.is_valid(selected_index):
+        selected_entry = self.get_history_by_index(selected_index)
+        if selected_entry:
             # A bug in SublimeText will cause the quick-panel to unexpectedly close trying to show the preview
             # for a file that is already open in a different group, so simply don't display the preview for these files
-            if self.get_view_from_another_group(selected_index):
+            if self.get_view_from_another_group(selected_entry):
                 pass
             else:
-                FileHistory.instance().preview_history(self.window, selected_index, self.history_list[selected_index])
+                FileHistory.instance().preview_history(self.window, selected_index, selected_entry)
 
     def open_file(self, selected_index):
         self.__class__.__is_active = False
 
-        if self.is_valid(selected_index):
+        selected_entry = self.get_history_by_index(selected_index)
+        if selected_entry:
             # If the file is open in another group then simply give focus to that view, otherwise open the file
-            open_view = self.get_view_from_another_group(selected_index)
+            open_view = self.get_view_from_another_group(selected_entry)
             if open_view:
                 self.window.focus_view(open_view)
             else:
-                FileHistory.instance().open_history(self.window, self.history_list[selected_index])
+                FileHistory.instance().open_history(self.window, selected_entry)
         else:
             # The user cancelled the action
             FileHistory.instance().reset(self.window)
