@@ -749,3 +749,6 @@ def plugin_unloaded():
 
 # ST2 backwards (and don't call it twice in ST3)
 unload_handler = plugin_unloaded if is_ST2 else lambda: None
+
+if is_ST2:
+    plugin_loaded()
