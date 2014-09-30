@@ -2,7 +2,6 @@ import os
 import hashlib
 import json
 import time
-import datetime
 import re
 import shutil
 import glob
@@ -93,22 +92,28 @@ class FileHistory(object):
         # Ignore the file preview setting for ST2
         self.SHOW_FILE_PREVIEW = False if is_ST2 else self.__ensure_setting('show_file_preview', True)
 
-    def get_timestamp(self, filename=None):
-        if filename and os.path.exists(filename):
-            timestamp = time.strftime(self.TIMESTAMP_FORMAT, time.localtime(os.path.getmtime(filename)))
-        else:
-            timestamp = time.strftime(self.TIMESTAMP_FORMAT)
-        return timestamp
-
     def get_history_timestamp(self, history_entry):
+        action, timestamp = None, None
         filepath = history_entry['filename']
         if 'timestamp' in history_entry and self.TIMESTAMP_MODE == 'history_access':
             action = history_entry['action'] if 'action' in history_entry else 'accessed'
             timestamp = history_entry['timestamp']
-        else:
+        elif filepath and os.path.exists(filepath):
             action = 'modified'
-            timestamp = self.get_timestamp(filepath)
+            timestamp = int(os.path.getmtime(filepath))
         return (action, timestamp)
+
+    def timestamp_from_string(self, timestamp):
+        """try with the user-defined timestamp then try the default timestamp."""
+        formats = set((self.TIMESTAMP_FORMAT, self.DEFAULT_TIMESTAMP_FORMAT))
+        for format_string in formats:
+            try:
+                history_time = time.strptime(timestamp, format_string)
+            except ValueError:
+                pass
+            else:
+                return int(time.mktime(history_time))
+        self.debug('The timestamp "%s" does not match either format "%s"' % (timestamp, formats))
 
     def __ensure_setting(self, key, default_value):
         value = default_value
@@ -168,15 +173,32 @@ class FileHistory(object):
                        %s: %s""")
                 % (self.HISTORY_FILE, e.__class__.__name__, e)
             )
-
         self.history = updated_history
+
+        self.__ensure_project('global')
+        # Migrate old formatted timestamps and convert to POSIX
+        hlist = updated_history['global']['closed'] or updated_history['global']['opened']
+        if hlist and 'timestamp' in hlist[0] and not isinstance(hlist[0]['timestamp'], int):
+            # Found an old timestamp. Likely that all others are old too
+            self.debug("Found an old-style formatted timestamp. Migrating to POSIX")
+            for project in updated_history.values():
+                for key in ('closed', 'opened'):
+                    for entry in project[key]:
+                        if not isinstance(entry.get('timestamp', 0), int):
+                            new_stamp = self.timestamp_from_string(entry['timestamp'])
+                            if not new_stamp:
+                                del entry['timestamp']
+                            else:
+                                entry['timestamp'] = new_stamp
+            # Save the changes
+            self.__save_history()
 
     def __save_history(self):
         self.debug('Saving the history to file ' + self.HISTORY_FILE)
         with open(self.HISTORY_FILE, mode='w+') as f:
-            history_indentation = self.INDENT_SIZE if self.PRETTIFY_HISTORY else None
+            indent = self.INDENT_SIZE if self.PRETTIFY_HISTORY else None
 
-            json.dump(self.history, f, indent=history_indentation)
+            json.dump(self.history, f, indent=indent)
             f.flush()
 
         invoke_async(lambda: self.__manage_backups(), 0)
@@ -300,8 +322,8 @@ class FileHistory(object):
         # Remove the file from the project list then
         # add it to the top (of the opened/closed list)
         self.__remove(project_name, filename)
-        node = {'filename': filename, 'group': group, 'index': index, 'timestamp': self.get_timestamp(), 'action': history_type}
-        self.history[project_name][history_type].insert(0, node)
+        entry = {'filename': filename, 'group': group, 'index': index, 'timestamp': int(time.time()), 'action': history_type}
+        self.history[project_name][history_type].insert(0, entry)
 
         # Make sure we limit the number of history entries
         max_num_entries = self.GLOBAL_MAX_ENTRIES if project_name == 'global' else self.PROJECT_MAX_ENTRIES
@@ -544,20 +566,11 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
 
     __is_active = False
 
-    def timestamp_from_string(self, timestamp, current_time):
-        """try with the user-defined timestamp then try the default timestamp. If neither works, then return 0.
-            This can happen if the user changes the timestamp format setting after there are already entries in the history file"""
-        history_time = current_time
-        for format_string in [FileHistory.instance().TIMESTAMP_FORMAT, FileHistory.instance().DEFAULT_TIMESTAMP_FORMAT]:
-            try:
-                history_time = datetime.datetime.strptime(timestamp, format_string)
-                break
-            except ValueError:
-                FileHistory.instance().debug('The timestamp "%s" does not match the format "%s"' % (timestamp, format_string))
-        return history_time
-
-    def approximate_age(self, current_time, timestamp, precision=2):
-        diff = current_time - self.timestamp_from_string(timestamp, current_time)
+    def approximate_age(self, from_stamp, to_stamp=None, precision=2):
+        """Calculate the relative time from given timestamp to another given (epoch) or now."""
+        if to_stamp is None:
+            to_stamp = time.time()
+        rem = to_stamp - from_stamp
 
         def divide(rem, mod):
             return rem % mod, int(rem // mod)
@@ -565,11 +578,6 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
         def subtract(rem, div):
             n = int(rem // div)
             return n,  rem - n * div
-
-        if is_ST2:
-            rem = diff.seconds + diff.days * 24 * 60 * 60
-        else:
-            rem = diff.total_seconds()
 
         seconds, rem = divide(rem, 60)
         minutes, rem = divide(rem, 60)
@@ -600,24 +608,25 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
     def run(self, show_quick_panel=True, current_project_only=True, selected_index=-1):
         self.history_list = FileHistory.instance().get_history(current_project_only)
         if show_quick_panel:
-            current_time = datetime.datetime.now()
             # Prepare the display list with the file name and path separated
             display_list = []
-            for node in self.history_list:
-                filepath = node['filename']
+            for entry in self.history_list:
+                filepath = entry['filename']
                 info = [os.path.basename(filepath), os.path.dirname(filepath)]
 
                 # Only include the timestamp if it is there and if the user wants to see it
                 if FileHistory.instance().TIMESTAMP_SHOW:
-                    (action, timestamp) = FileHistory.instance().get_history_timestamp(node)
-
                     if not os.path.exists(filepath):
-                        stamp = '   file no longer exists'
-                    elif bool(FileHistory.instance().TIMESTAMP_RELATIVE):
-                        stamp = '   %s ~%s ago' % (action, self.approximate_age(current_time, timestamp))
+                        stamp = 'file no longer exists'
                     else:
-                        stamp = '   %s on %s' % (action, timestamp)
-                    info.append('   ' + stamp)
+                        (action, timestamp) = FileHistory.instance().get_history_timestamp(entry)
+                        if not timestamp:
+                            stamp = ''
+                        elif bool(FileHistory.instance().TIMESTAMP_RELATIVE):
+                            stamp = '%s ~%s ago' % (action, self.approximate_age(timestamp))
+                        else:
+                            stamp = '%s on %s' % (action, time.strftime(self.TIMESTAMP_FORMAT, timestamp))
+                    info.append((' ' * 6) + stamp)
 
                 display_list.append(info)
             font_flag = sublime.MONOSPACE_FONT if FileHistory.instance().USE_MONOSPACE else 0
