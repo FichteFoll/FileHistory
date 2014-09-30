@@ -617,17 +617,17 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
 
         return ", ".join(magnitudes)
 
-    def get_history_index(self, index):
+    def get_history_by_index(self, index):
         if index < 0:
             return
-        if len(self.history_list['closed']) >= index:
+        closed_len = len(self.history_list['closed'])
+        if index <= closed_len:
             key = 'closed'
         else:
-            index -= len(self.history_list['closed'])
+            index -= closed_len
             key = 'opened'
-        if len(self.history_list[key]) <= index:
-            return
-        else:
+
+        if index <= len(self.history_list[key]):
             return self.history_list[key][index]
 
     def run(self, show_quick_panel=True, current_project_only=True, selected_index=-1):
@@ -688,7 +688,7 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
 
     def show_preview(self, selected_index):
         # Note: This function will never be called in ST2
-        selected_entry = self.get_history_index(selected_index)
+        selected_entry = self.get_history_by_index(selected_index)
         if selected_entry:
             # A bug in SublimeText will cause the quick-panel to unexpectedly close trying to show the preview
             # for a file that is already open in a different group, so simply don't display the preview for these files
@@ -700,7 +700,7 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
     def open_file(self, selected_index):
         self.__class__.__is_active = False
 
-        selected_entry = self.get_history_index(selected_index)
+        selected_entry = self.get_history_by_index(selected_index)
         if selected_entry:
             # If the file is open in another group then simply give focus to that view, otherwise open the file
             open_view = self.get_view_from_another_group(selected_entry)
