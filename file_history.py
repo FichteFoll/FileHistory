@@ -15,20 +15,25 @@ is_ST2 = int(sublime.version()) < 3000
 invoke_async = sublime.set_timeout if is_ST2 else sublime.set_timeout_async
 
 
+# Use this compat method to create a dummy class
+# that other classes can be subclassed from.
+# This allows specifying a metaclass for both Py2 and Py3 with the same syntax.
+def with_metaclass(meta, *bases):
+    """Create a base class with a metaclass."""
+    return meta("_NewBase", bases or (object,), {})
+
+
 # Metaclass for singletons
 class Singleton(type):
-    def __init__(cls, name, bases, dict):
-        super(Singleton, cls).__init__(name, bases, dict)
-        cls._instance = None
+    _instance = None
 
-    def __call__(cls, *args, **kw):
-        if cls._instance is None:
-            cls._instance = super(Singleton, cls).__call__(*args, **kw)
+    def __call__(cls, *args, **kwargs):
+        if not cls._instance:
+            cls._instance = super(Singleton, cls).__call__(*args, **kwargs)
         return cls._instance
 
 
-class FileHistory(object):
-    __metaclass__ = Singleton
+class FileHistory(with_metaclass(Singleton)):
 
     SETTINGS_CALLBACK_KEY = 'FileHistory-reload'
     PRINT_DEBUG = False
