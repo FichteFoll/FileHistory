@@ -132,10 +132,10 @@ class FileHistory(with_metaclass(Singleton)):
         value = default_value
         if self.app_settings.has(key):
             value = self.app_settings.get(key)
-            self.debug('Setting "%s" = "%s"' % (key, value))
+            self.debug('Setting "%s" = %r' % (key, value))
         else:
             # no need to persist this setting - just use the default
-            self.debug('Setting "%s" not found.  Using the default value of "%s"' % (key, default_value))
+            self.debug('Setting "%s" not found.  Using the default value of %r' % (key, default_value))
         return value
 
     def debug(self, text):
@@ -159,7 +159,7 @@ class FileHistory(with_metaclass(Singleton)):
             # migrate the history entry based on the "old" project key (if it exists)
             if project_key in self.history:
                 self.history[project_filename] = self.history[project_key]
-                del(self.history[project_key])
+                del self.history[project_key]
 
             # use the new project key
             project_key = project_filename
