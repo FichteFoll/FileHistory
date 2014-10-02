@@ -330,11 +330,12 @@ class FileHistory(with_metaclass(Singleton)):
                 self.__add_to_history('global', history_type, filename, group, index)
             else:
                 # If the file doesn't exist then remove it from the lists
-                self.__remove_view(filename, project_name)
+                self.__remove(project_name, filename)
+                self.__remove('global', filename)
 
             self.__save_history()
 
-    def __remove_view(self, filename, project_name):
+    def __queue_delete(self, filename, project_name):
         if self.REMOVE_NON_EXISTENT_FILES:
             self.debug('Queuing file for deletion: ' + filename)
             self.delete_queue.append({'project': project_name, 'filename': filename})
@@ -491,7 +492,7 @@ class FileHistory(with_metaclass(Singleton)):
         else:
             # Close the last preview and remove the non-existent file from the history
             self.__close_preview(window)
-            self.__remove_view(filepath, self.get_current_project_key())
+            self.__queue_delete(filepath, self.get_current_project_key())
 
     def __open_preview(self, window, filepath):
         self.current_view = window.open_file(filepath, sublime.TRANSIENT)
