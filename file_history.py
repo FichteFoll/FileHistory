@@ -557,7 +557,14 @@ class FileHistory(with_metaclass(Singleton)):
         if is_ST2:
             return False
 
-        return view == window.transient_view_in_group(window.active_group()) or not view
+        # If the view index is (-1, -1) then this can't be a real view
+        # window.transient_view_in_group is not returning the correct value when we quickly cycle through the quick panel previews
+        if not view or (-1, -1) == window.get_view_index(view):
+            self.debug("Detected possibly transient view with (group, index) = (-1, -1): '%s'"
+                       % (view.file_name() or view))
+            return True
+        elif view == window.transient_view_in_group(window.active_group()):
+            return True
 
 
 class OpenRecentlyClosedFileEvent(sublime_plugin.EventListener):
