@@ -48,6 +48,8 @@ class FileHistory(with_metaclass(Singleton)):
         self.__load_history()
         self.__clear_context()
 
+        self.delete_queue = []
+
         if self.DELETE_ALL_ON_STARTUP:
             invoke_async(lambda: self.delete_all_history(), 0)
         elif self.CLEANUP_ON_STARTUP:
@@ -296,7 +298,7 @@ class FileHistory(with_metaclass(Singleton)):
             if re.search(exclude, filename):
                 self.debug('[X] Exclusion pattern "%s" blocks history tracking for filename "%s"'
                            % (exclude, filename))
-                # See if none of out reinclude patterns nulifies the exclude
+                # See if none of out reinclude patterns nullifies the exclude
                 for reinclude in reinclude_patterns:
                     if re.search(reinclude, filename):
                         self.debug('[O] Inclusion pattern "%s" re-includes history tracking for filename "%s"'
@@ -328,18 +330,30 @@ class FileHistory(with_metaclass(Singleton)):
                 self.__add_to_history('global', history_type, filename, group, index)
             else:
                 # If the file doesn't exist then remove it from the lists
-                self.__remove_view(filename, project_name, False)
+                self.__remove_view(filename, project_name)
 
             self.__save_history()
 
-    def __remove_view(self, filename, project_name, save_history):
+    def __remove_view(self, filename, project_name):
         if self.REMOVE_NON_EXISTENT_FILES:
-            self.debug('The file no longer exists, so it has been removed from the history: ' + filename)
-            self.__remove(project_name, filename)
-            self.__remove('global', filename)
+            self.debug('Queuing file for deletion: ' + filename)
+            self.delete_queue.append({'project': project_name, 'filename': filename})
 
-            if save_history:
-                self.__save_history()
+    def delete_pending(self):
+        # Delete any of the files waiting in the 'delete_queue'.  We queue the file to be deleted
+        # since deleting them immediately will make the quick panel inconsistent with the history.
+        trigger_save = False
+        while len(self.delete_queue) > 0:
+            item = self.delete_queue.pop()
+            for key in ('global', item['project']):
+                self.debug('File no longer exists: removing it from the "%s" history: %s' % (key, item['filename']))
+                self.__remove(key, item['filename'])
+                trigger_save = True
+
+        # only save the history if we changed it above
+        if trigger_save:
+            self.__save_history()
+
 
     def __add_to_history(self, project_name, history_type, filename, group, index):
         self.debug('Adding %s file to project "%s" with group %s and index %s: %s' % (history_type, project_name, group, index, filename))
@@ -477,7 +491,7 @@ class FileHistory(with_metaclass(Singleton)):
         else:
             # Close the last preview and remove the non-existent file from the history
             self.__close_preview(window)
-            self.__remove_view(filepath, self.get_current_project_key(), True)
+            self.__remove_view(filepath, self.get_current_project_key())
 
     def __open_preview(self, window, filepath):
         self.current_view = window.open_file(filepath, sublime.TRANSIENT)
@@ -632,7 +646,7 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
         if index < 0:
             return
         closed_len = len(self.history_list['closed'])
-        if index <= closed_len:
+        if index < closed_len:
             key = 'closed'
         else:
             index -= closed_len
@@ -724,6 +738,9 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
             FileHistory().reset(self.window)
 
         self.history_list = {}
+
+        # Perform any pending deletes
+        FileHistory().delete_pending()
 
 
 class OpenRecentlyCloseFileCommandContextHandler(sublime_plugin.EventListener):
