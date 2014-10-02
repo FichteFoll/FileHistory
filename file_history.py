@@ -356,7 +356,6 @@ class FileHistory(with_metaclass(Singleton)):
         if trigger_save:
             self.__save_history()
 
-
     def __add_to_history(self, project_name, history_type, filename, group, index):
         self.debug('Adding %s file to project "%s" with group %s and index %s: %s' % (history_type, project_name, group, index, filename))
 
@@ -366,7 +365,7 @@ class FileHistory(with_metaclass(Singleton)):
         # Remove the file from the project list then
         # add it to the top (of the opened/closed list)
         self.__remove(project_name, filename)
-        entry = {'filename': filename, 'group': group, 'index': index, 'timestamp': int(time.time()), 'action': history_type}
+        entry = {'filename': filename, 'group': group, 'index': index, 'timestamp': int(time.time())}
         self.history[project_name][history_type].insert(0, entry)
 
         # Make sure we limit the number of history entries
