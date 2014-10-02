@@ -272,8 +272,9 @@ class FileHistory(with_metaclass(Singleton)):
 
         # Return the list of closed and opened files
         if self.project_name in self.history:
-            # Note that a copy of the list must be returned
-            return self.history[self.project_name].copy()
+            # Note we don't copy the list because deletions will be queued until
+            # after the caller is done with the list
+            return self.history[self.project_name]
         else:
             self.debug('WARN: Project %s could not be found in the file history list - returning an empty history list' % (self.project_name))
             return []
