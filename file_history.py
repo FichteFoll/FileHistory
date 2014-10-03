@@ -2,7 +2,6 @@ import os
 import hashlib
 import json
 import time
-import datetime
 import re
 import shutil
 import glob
@@ -16,27 +15,40 @@ is_ST2 = int(sublime.version()) < 3000
 invoke_async = sublime.set_timeout if is_ST2 else sublime.set_timeout_async
 
 
-class FileHistory(object):
+# Use this compat method to create a dummy class
+# that other classes can be subclassed from.
+# This allows specifying a metaclass for both Py2 and Py3 with the same syntax.
+def with_metaclass(meta, *bases):
+    """Create a base class with a metaclass."""
+    return meta("_NewBase", bases or (object,), {})
+
+
+# Metaclass for singletons
+class Singleton(type):
     _instance = None
+
+    def __call__(cls, *args, **kwargs):
+        if not cls._instance:
+            cls._instance = super(Singleton, cls).__call__(*args, **kwargs)
+        return cls._instance
+
+
+class FileHistory(with_metaclass(Singleton)):
 
     SETTINGS_CALLBACK_KEY = 'FileHistory-reload'
     PRINT_DEBUG = False
     SETTINGS_FILE = 'FileHistory.sublime-settings'
     INDENT_SIZE = 2
-    DEFAULT_TIMESTAMP_FORMAT = '%Y-%m-%d %H:%M:%S'
-
-    @classmethod
-    def instance(cls):
-        """Basic singleton implementation"""
-        if not cls._instance:
-            cls._instance = cls()
-        return cls._instance
+    DEFAULT_TIMESTAMP_FORMAT = '%Y-%m-%d @ %H:%M:%S'
+    OLD_DEFAULT_TIMESTAMP_FORMAT = '%Y-%m-%d %H:%M:%S'
 
     def __init__(self):
         """Class to manage the file-access history"""
         self.__load_settings()
         self.__load_history()
         self.__clear_context()
+
+        self.delete_queue = []
 
         if self.DELETE_ALL_ON_STARTUP:
             invoke_async(lambda: self.delete_all_history(), 0)
@@ -93,31 +105,39 @@ class FileHistory(object):
         # Ignore the file preview setting for ST2
         self.SHOW_FILE_PREVIEW = False if is_ST2 else self.__ensure_setting('show_file_preview', True)
 
-    def get_timestamp(self, filename=None):
-        if filename and os.path.exists(filename):
-            timestamp = time.strftime(self.TIMESTAMP_FORMAT, time.localtime(os.path.getmtime(filename)))
-        else:
-            timestamp = time.strftime(self.TIMESTAMP_FORMAT)
-        return timestamp
-
-    def get_history_timestamp(self, history_entry):
+    def get_history_timestamp(self, history_entry, action):
+        timestamp = None
         filepath = history_entry['filename']
         if 'timestamp' in history_entry and self.TIMESTAMP_MODE == 'history_access':
-            action = history_entry['action'] if 'action' in history_entry else 'accessed'
             timestamp = history_entry['timestamp']
-        else:
+        elif filepath and os.path.exists(filepath):
             action = 'modified'
-            timestamp = self.get_timestamp(filepath)
+            timestamp = int(os.path.getmtime(filepath))
         return (action, timestamp)
+
+    def timestamp_from_string(self, timestamp):
+        """try with the user-defined timestamp then try the default timestamp."""
+        # Use a set to catch duplicates
+        formats = set((self.TIMESTAMP_FORMAT,
+                       self.DEFAULT_TIMESTAMP_FORMAT,
+                       self.OLD_DEFAULT_TIMESTAMP_FORMAT))
+        for format_string in formats:
+            try:
+                history_time = time.strptime(timestamp, format_string)
+            except ValueError:
+                pass
+            else:
+                return int(time.mktime(history_time))
+        self.debug('The timestamp "%s" does not match either format "%s"' % (timestamp, formats))
 
     def __ensure_setting(self, key, default_value):
         value = default_value
         if self.app_settings.has(key):
             value = self.app_settings.get(key)
-            self.debug('Setting "%s" = "%s"' % (key, value))
+            self.debug('Setting "%s" = %r' % (key, value))
         else:
             # no need to persist this setting - just use the default
-            self.debug('Setting "%s" not found.  Using the default value of "%s"' % (key, default_value))
+            self.debug('Setting "%s" not found.  Using the default value of %r' % (key, default_value))
         return value
 
     def debug(self, text):
@@ -141,7 +161,7 @@ class FileHistory(object):
             # migrate the history entry based on the "old" project key (if it exists)
             if project_key in self.history:
                 self.history[project_filename] = self.history[project_key]
-                del(self.history[project_key])
+                del self.history[project_key]
 
             # use the new project key
             project_key = project_filename
@@ -168,15 +188,47 @@ class FileHistory(object):
                        %s: %s""")
                 % (self.HISTORY_FILE, e.__class__.__name__, e)
             )
-
         self.history = updated_history
+
+        # Do cleanup on the history file
+        self.__ensure_project('global')
+        trigger_save = False
+
+        # Migrate old formatted timestamps and convert to POSIX
+        hlist = updated_history['global']['closed'] or updated_history['global']['opened']
+        if hlist and 'timestamp' in hlist[0] and not isinstance(hlist[0]['timestamp'], int):
+            # Found an old timestamp. Likely that all others are old too
+            self.debug("Found an old-style formatted timestamp. Migrating to POSIX")
+            for project in updated_history.values():
+                for key in ('closed', 'opened'):
+                    for entry in project[key]:
+                        if not isinstance(entry.get('timestamp', 0), int):
+                            new_stamp = self.timestamp_from_string(entry['timestamp'])
+                            if not new_stamp:
+                                del entry['timestamp']
+                            else:
+                                entry['timestamp'] = new_stamp
+            trigger_save = True
+        # Remove actions keys
+        if hlist and 'action' in hlist[0]:
+            self.debug("Found an old-style action field. Cleaning up")
+            trigger_save = True
+            for project in updated_history.values():
+                for key in ('closed', 'opened'):
+                    for entry in project[key]:
+                        if 'action' in entry:
+                            del entry['action']
+
+        if trigger_save:
+            # Save the changes
+            self.__save_history()
 
     def __save_history(self):
         self.debug('Saving the history to file ' + self.HISTORY_FILE)
         with open(self.HISTORY_FILE, mode='w+') as f:
-            history_indentation = self.INDENT_SIZE if self.PRETTIFY_HISTORY else None
+            indent = self.INDENT_SIZE if self.PRETTIFY_HISTORY else None
 
-            json.dump(self.history, f, indent=history_indentation)
+            json.dump(self.history, f, indent=indent)
             f.flush()
 
         invoke_async(lambda: self.__manage_backups(), 0)
@@ -220,8 +272,9 @@ class FileHistory(object):
 
         # Return the list of closed and opened files
         if self.project_name in self.history:
-            # Note that a copy of the list must be returned
-            return self.history[self.project_name]['closed'] + self.history[self.project_name]['opened']
+            # Note we don't copy the list because deletions will be queued until
+            # after the caller is done with the list
+            return self.history[self.project_name]
         else:
             self.debug('WARN: Project %s could not be found in the file history list - returning an empty history list' % (self.project_name))
             return []
@@ -246,7 +299,7 @@ class FileHistory(object):
             if re.search(exclude, filename):
                 self.debug('[X] Exclusion pattern "%s" blocks history tracking for filename "%s"'
                            % (exclude, filename))
-                # See if none of out reinclude patterns nulifies the exclude
+                # See if none of out reinclude patterns nullifies the exclude
                 for reinclude in reinclude_patterns:
                     if re.search(reinclude, filename):
                         self.debug('[O] Inclusion pattern "%s" re-includes history tracking for filename "%s"'
@@ -278,18 +331,30 @@ class FileHistory(object):
                 self.__add_to_history('global', history_type, filename, group, index)
             else:
                 # If the file doesn't exist then remove it from the lists
-                self.__remove_view(filename, project_name, False)
+                self.__remove(project_name, filename)
+                self.__remove('global', filename)
 
             self.__save_history()
 
-    def __remove_view(self, filename, project_name, save_history):
+    def __queue_delete(self, filename, project_name):
         if self.REMOVE_NON_EXISTENT_FILES:
-            self.debug('The file no longer exists, so it has been removed from the history: ' + filename)
-            self.__remove(project_name, filename)
-            self.__remove('global', filename)
+            self.debug('Queuing file for deletion: ' + filename)
+            self.delete_queue.append({'project': project_name, 'filename': filename})
 
-            if save_history:
-                self.__save_history()
+    def delete_pending(self):
+        # Delete any of the files waiting in the 'delete_queue'.  We queue the file to be deleted
+        # since deleting them immediately will make the quick panel inconsistent with the history.
+        trigger_save = False
+        while len(self.delete_queue) > 0:
+            item = self.delete_queue.pop()
+            for key in ('global', item['project']):
+                self.debug('File no longer exists: removing it from the "%s" history: %s' % (key, item['filename']))
+                self.__remove(key, item['filename'])
+                trigger_save = True
+
+        # only save the history if we changed it above
+        if trigger_save:
+            self.__save_history()
 
     def __add_to_history(self, project_name, history_type, filename, group, index):
         self.debug('Adding %s file to project "%s" with group %s and index %s: %s' % (history_type, project_name, group, index, filename))
@@ -300,8 +365,8 @@ class FileHistory(object):
         # Remove the file from the project list then
         # add it to the top (of the opened/closed list)
         self.__remove(project_name, filename)
-        node = {'filename': filename, 'group': group, 'index': index, 'timestamp': self.get_timestamp(), 'action': history_type}
-        self.history[project_name][history_type].insert(0, node)
+        entry = {'filename': filename, 'group': group, 'index': index, 'timestamp': int(time.time())}
+        self.history[project_name][history_type].insert(0, entry)
 
         # Make sure we limit the number of history entries
         max_num_entries = self.GLOBAL_MAX_ENTRIES if project_name == 'global' else self.PROJECT_MAX_ENTRIES
@@ -319,22 +384,16 @@ class FileHistory(object):
                     self.history[project_name][history_type].remove(node)
 
     def clean_history(self, current_project_only):
-        self.__clean_history(self.get_current_project_key())
-
+        if current_project_only:
+            self.__clean_history(self.get_current_project_key())
         # If requested, also clean-up the global history
-        if not current_project_only:
-            self.__clean_history('global')
-
+        else:
             # clean all projects and remove any orphaned projects
             orphan_list = []
             for project_key in self.history:
-                # skip the global project and the current one (that was just cleaned above)
-                if project_key in ('global', self.get_current_project_key()):
-                    continue
-
                 # clean the project or remove it (if it no longer exists)
                 # The ST2 version uses md5 hashes for the project keys, so we can never know if a project is orphaned
-                if not is_ST2 and not os.path.exists(project_key):
+                if not is_ST2 and not project_key == 'global' and not os.path.exists(project_key):
                     # queue the orphaned project for deletion
                     orphan_list.append(project_key)
                 else:
@@ -345,7 +404,9 @@ class FileHistory(object):
             for project_key in orphan_list:
                 self.debug('Removing orphaned project "%s" from the history' % project_key)
                 del self.history[project_key]
-            self.__save_history()
+
+        # Save history
+        self.__save_history()
 
     def __clean_history(self, project_name):
         self.debug('Cleaning the "%s" history' % (project_name))
@@ -361,7 +422,6 @@ class FileHistory(object):
                     self.debug('Removing non-existent file from project "%s": %s' % (project_name, node['filename']))
                     self.history[project_name][history_type].remove(node)
 
-        self.__save_history()
         sublime.status_message("File history cleaned")
 
     def __clear_context(self):
@@ -432,7 +492,7 @@ class FileHistory(object):
         else:
             # Close the last preview and remove the non-existent file from the history
             self.__close_preview(window)
-            self.__remove_view(filepath, self.get_current_project_key(), True)
+            self.__queue_delete(filepath, self.get_current_project_key())
 
     def __open_preview(self, window, filepath):
         self.current_view = window.open_file(filepath, sublime.TRANSIENT)
@@ -497,44 +557,56 @@ class FileHistory(object):
         if is_ST2:
             return False
 
-        return view == window.transient_view_in_group(window.active_group()) or not view
+        if not view:
+            # Sometimes, the view is just `None`. We can't use it in this
+            # state so just mark as transient.
+            return True
+        elif (-1, -1) == window.get_view_index(view):
+            # If the view index is (-1, -1) then this can't be a real view.
+            # window.transient_view_in_group is not returning the correct
+            # value when we quickly cycle through the quick panel previews.
+            self.debug("Detected possibly transient view with (group, index) = (-1, -1): '%s'"
+                       % view.file_name())
+            return True
+        else:
+            return view == window.transient_view_in_group(window.active_group())
 
 
 class OpenRecentlyClosedFileEvent(sublime_plugin.EventListener):
     """class to keep a history of the files that have been opened and closed"""
     def on_pre_close(self, view):
-        FileHistory.instance().add_view(sublime.active_window(), view, 'closed')
+        FileHistory().add_view(sublime.active_window(), view, 'closed')
 
     def on_load(self, view):
-        FileHistory.instance().add_view(sublime.active_window(), view, 'opened')
+        FileHistory().add_view(sublime.active_window(), view, 'opened')
 
 
 class CleanupFileHistoryCommand(sublime_plugin.WindowCommand):
     def run(self, current_project_only=True):
-        FileHistory.instance().clean_history(current_project_only)
+        FileHistory().clean_history(current_project_only)
 
 
 class ResetFileHistoryCommand(sublime_plugin.WindowCommand):
     def run(self):
-        FileHistory.instance().delete_all_history()
+        FileHistory().delete_all_history()
 
 
 class QuickOpenFileHistoryCommand(sublime_plugin.WindowCommand):
     def run(self):
-        FileHistory.instance().quick_open_preview(sublime.active_window())
+        FileHistory().quick_open_preview(sublime.active_window())
 
 
 class DeleteFileHistoryEntryCommand(sublime_plugin.WindowCommand):
     def run(self):
-        FileHistory.instance().delete_current_entry()
+        FileHistory().delete_current_entry()
 
         # Remember if we are showing the global history or the project-specific history
-        project_flag = not (FileHistory.instance().project_name == 'global')
+        project_flag = not (FileHistory().project_name == 'global')
 
         # Deleting an entry from the quick panel should reopen it with the entry removed
         # TODO recover filter text? (I don't think it is possible to get the quick-panel filter text from the API)
         args = {'current_project_only': project_flag,
-                'selected_index': FileHistory.instance().current_selected_index}
+                'selected_index': FileHistory().current_selected_index}
         sublime.active_window().run_command('hide_overlay')
         sublime.active_window().run_command('open_recently_closed_file', args=args)
 
@@ -544,20 +616,11 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
 
     __is_active = False
 
-    def timestamp_from_string(self, timestamp, current_time):
-        """try with the user-defined timestamp then try the default timestamp. If neither works, then return 0.
-            This can happen if the user changes the timestamp format setting after there are already entries in the history file"""
-        history_time = current_time
-        for format_string in [FileHistory.instance().TIMESTAMP_FORMAT, FileHistory.instance().DEFAULT_TIMESTAMP_FORMAT]:
-            try:
-                history_time = datetime.datetime.strptime(timestamp, format_string)
-                break
-            except ValueError:
-                self.debug('The timestamp "%s" does not match the format "%s"' % (timestamp, format_string))
-        return history_time
-
-    def approximate_age(self, current_time, timestamp, precision=2):
-        diff = current_time - self.timestamp_from_string(timestamp, current_time)
+    def approximate_age(self, from_stamp, to_stamp=None, precision=2):
+        """Calculate the relative time from given timestamp to another given (epoch) or now."""
+        if to_stamp is None:
+            to_stamp = time.time()
+        rem = to_stamp - from_stamp
 
         def divide(rem, mod):
             return rem % mod, int(rem // mod)
@@ -565,11 +628,6 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
         def subtract(rem, div):
             n = int(rem // div)
             return n,  rem - n * div
-
-        if is_ST2:
-            rem = diff.seconds + diff.days * 24 * 60 * 60
-        else:
-            rem = diff.total_seconds()
 
         seconds, rem = divide(rem, 60)
         minutes, rem = divide(rem, 60)
@@ -597,30 +655,45 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
 
         return ", ".join(magnitudes)
 
+    def get_history_by_index(self, index):
+        if index < 0:
+            return
+        closed_len = len(self.history_list['closed'])
+        if index < closed_len:
+            key = 'closed'
+        else:
+            index -= closed_len
+            key = 'opened'
+
+        if index <= len(self.history_list[key]):
+            return self.history_list[key][index]
+
     def run(self, show_quick_panel=True, current_project_only=True, selected_index=-1):
-        self.history_list = FileHistory.instance().get_history(current_project_only)
+        self.history_list = FileHistory().get_history(current_project_only)
         if show_quick_panel:
-            current_time = datetime.datetime.now()
             # Prepare the display list with the file name and path separated
             display_list = []
-            for node in self.history_list:
-                filepath = node['filename']
-                info = [os.path.basename(filepath), os.path.dirname(filepath)]
+            for key in ('closed', 'opened'):
+                for entry in self.history_list[key]:
+                    filepath = entry['filename']
+                    info = [os.path.basename(filepath), os.path.dirname(filepath)]
 
-                # Only include the timestamp if it is there and if the user wants to see it
-                if FileHistory.instance().TIMESTAMP_SHOW:
-                    (action, timestamp) = FileHistory.instance().get_history_timestamp(node)
+                    # Only include the timestamp if it is there and if the user wants to see it
+                    if FileHistory().TIMESTAMP_SHOW:
+                        if not os.path.exists(filepath):
+                            stamp = 'file no longer exists'
+                        else:
+                            (action, timestamp) = FileHistory().get_history_timestamp(entry, key)
+                            if not timestamp:
+                                stamp = ''
+                            elif bool(FileHistory().TIMESTAMP_RELATIVE):
+                                stamp = '%s ~%s ago' % (action, self.approximate_age(timestamp))
+                            else:
+                                stamp = '%s on %s' % (action, time.strftime(self.TIMESTAMP_FORMAT, timestamp))
+                        info.append((' ' * 6) + stamp)
 
-                    if not os.path.exists(filepath):
-                        stamp = '   file no longer exists'
-                    elif bool(FileHistory.instance().TIMESTAMP_RELATIVE):
-                        stamp = '   %s ~%s ago' % (action, self.approximate_age(current_time, timestamp))
-                    else:
-                        stamp = '   %s on %s' % (action, timestamp)
-                    info.append('   ' + stamp)
-
-                display_list.append(info)
-            font_flag = sublime.MONOSPACE_FONT if FileHistory.instance().USE_MONOSPACE else 0
+                    display_list.append(info)
+            font_flag = sublime.MONOSPACE_FONT if FileHistory().USE_MONOSPACE else 0
 
             self.__class__.__is_active = True
 
@@ -642,13 +715,10 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
 
         return cls.__is_active
 
-    def is_valid(self, selected_index):
-        return selected_index >= 0 and selected_index < len(self.history_list)
-
-    def get_view_from_another_group(self, selected_index):
-        open_view = self.window.find_open_file(self.history_list[selected_index]['filename'])
+    def get_view_from_another_group(self, selected_entry):
+        open_view = self.window.find_open_file(selected_entry['filename'])
         if open_view:
-            calling_group = FileHistory.instance().calling_view_index[0]
+            calling_group = FileHistory().calling_view_index[0]
             preview_group = self.window.get_view_index(open_view)[0]
             if preview_group != calling_group:
                 return open_view
@@ -656,29 +726,34 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
 
     def show_preview(self, selected_index):
         # Note: This function will never be called in ST2
-        if self.is_valid(selected_index):
+        selected_entry = self.get_history_by_index(selected_index)
+        if selected_entry:
             # A bug in SublimeText will cause the quick-panel to unexpectedly close trying to show the preview
             # for a file that is already open in a different group, so simply don't display the preview for these files
-            if self.get_view_from_another_group(selected_index):
+            if self.get_view_from_another_group(selected_entry):
                 pass
             else:
-                FileHistory.instance().preview_history(self.window, selected_index, self.history_list[selected_index])
+                FileHistory().preview_history(self.window, selected_index, selected_entry)
 
     def open_file(self, selected_index):
         self.__class__.__is_active = False
 
-        if self.is_valid(selected_index):
+        selected_entry = self.get_history_by_index(selected_index)
+        if selected_entry:
             # If the file is open in another group then simply give focus to that view, otherwise open the file
-            open_view = self.get_view_from_another_group(selected_index)
+            open_view = self.get_view_from_another_group(selected_entry)
             if open_view:
                 self.window.focus_view(open_view)
             else:
-                FileHistory.instance().open_history(self.window, self.history_list[selected_index])
+                FileHistory().open_history(self.window, selected_entry)
         else:
             # The user cancelled the action
-            FileHistory.instance().reset(self.window)
+            FileHistory().reset(self.window)
 
         self.history_list = {}
+
+        # Perform any pending deletes
+        FileHistory().delete_pending()
 
 
 class OpenRecentlyCloseFileCommandContextHandler(sublime_plugin.EventListener):
@@ -700,12 +775,15 @@ class OpenRecentlyCloseFileCommandContextHandler(sublime_plugin.EventListener):
 def plugin_loaded():
     # Force the FileHistory singleton to be instantiated so the startup tasks will be executed
     # Depending on the "cleanup_on_startup" setting, the history may be cleaned at startup
-    FileHistory.instance()
+    FileHistory()
 
 
 def plugin_unloaded():
     # Unregister our on_change callback
-    FileHistory.instance().app_settings.clear_on_change(FileHistory.SETTINGS_CALLBACK_KEY)
+    FileHistory().app_settings.clear_on_change(FileHistory.SETTINGS_CALLBACK_KEY)
 
 # ST2 backwards (and don't call it twice in ST3)
 unload_handler = plugin_unloaded if is_ST2 else lambda: None
+
+if is_ST2:
+    plugin_loaded()

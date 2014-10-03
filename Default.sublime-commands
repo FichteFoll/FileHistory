@@ -1,4 +1,29 @@
 [
+    // Open readme and settings
+    {
+        "caption": "File History: Open README",
+        "command": "open_file",
+        "args": {
+            "file": "${packages}/File History/README.md"
+        }
+    },
+    {
+        "caption": "Preferences: File History Settings - Default",
+        "command": "open_file",
+        "args": {
+            "file": "${packages}/File History/FileHistory.sublime-settings"
+        }
+    },
+    {
+        "caption": "Preferences: File History Settings - User",
+        "command": "open_file",
+        "args": {
+            "file": "${packages}/User/FileHistory.sublime-settings",
+            "contents": "{\n\t$0\n}"
+        }
+    },
+
+    // File History commands
     {
         "caption": "File History: Open recently closed file (Current Project)",
         "command": "open_recently_closed_file",
