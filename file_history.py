@@ -575,8 +575,14 @@ class FileHistory(with_metaclass(Singleton)):
 
 
 class OpenRecentlyClosedFileEvent(sublime_plugin.EventListener):
-    def on_close(self, view):
+    # We need pre close to detect if the view was transient,
+    # otherwise it always has (-1, -1) group and index.
+    def on_pre_close(self, view):
         FileHistory().add_view(sublime.active_window(), view, 'closed')
+
+    # However, ST2 does not have pre_close (and no transient views either).
+    if is_ST2:
+        on_close = on_pre_close
 
     def on_load(self, view):
         FileHistory().add_view(sublime.active_window(), view, 'opened')
