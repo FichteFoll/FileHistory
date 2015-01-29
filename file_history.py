@@ -532,10 +532,9 @@ class FileHistory(with_metaclass(Singleton)):
         # Open the file and position the view correctly
         new_view = window.open_file(history_entry['filename'])
         window.set_view_index(new_view, group, index)
-        self.debug('Opened file in group %s, index %s (based on saved group %s, index %s): %s' % (group, index, history_entry['group'], history_entry['index'], history_entry['filename']))
+        self.debug('Opened file in group %s, index %s (based on saved group %s, index %s): %s'
+                   % (group, index, history_entry['group'], history_entry['index'], history_entry['filename']))
 
-        # Add the file we just opened to the history and clear the context
-        invoke_async(self.add_view(window, new_view, 'opened'), 0)
         self.__clear_context()
 
     def __close_preview(self, window):
