@@ -572,9 +572,11 @@ class FileHistory(with_metaclass(Singleton)):
             return view == window.transient_view_in_group(window.active_group())
 
 
+#######################################
+
+
 class OpenRecentlyClosedFileEvent(sublime_plugin.EventListener):
-    """class to keep a history of the files that have been opened and closed"""
-    def on_pre_close(self, view):
+    def on_close(self, view):
         FileHistory().add_view(sublime.active_window(), view, 'closed')
 
     def on_load(self, view):
