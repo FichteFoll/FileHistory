@@ -34,14 +34,12 @@
     "monospace_font": false,
 
     // Should the last accessed timestamp be shown in the quick panel?
-    "display_timestamps": true,
+    "timestamp_show": true,
 
-    // How to display the timestamp:
-    // "relative": how long since the access, e.g. '2 days, 5 hours'
-    // "absolute": the date and time of the last access
-    //
-    // Please note that the "relative" option can cause a delay in the quick panel popping up.
-    "timestamp_display_type": "relative",
+    // Whether timestamps should be a relative approximation
+    // e.g. '2 days, 5 hours', or an absolute timestamp using
+    // the format below.
+    "timestamp_relative": true,
 
     // Format of the absolute timestamp that should be added to the history entry
     "timestamp_format": "%Y-%m-%d @ %H:%M:%S",
