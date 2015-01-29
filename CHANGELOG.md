@@ -1,6 +1,15 @@
 File History Changelog
 ======================
 
+v1.7.1 (2015-01-29)
+-------------------
+
+- ST2: Fix "reopen last tab" not working at all
+- ST2: Fix closed tabs not being tracked (which, again, fixes "reopen last tab")
+- Fix files opened from the history being recorded twice
+- Fix default settings having old setting names and values
+
+
 v1.7.0 (2014-10-03)
 -------------------
 
