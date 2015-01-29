@@ -532,10 +532,9 @@ class FileHistory(with_metaclass(Singleton)):
         # Open the file and position the view correctly
         new_view = window.open_file(history_entry['filename'])
         window.set_view_index(new_view, group, index)
-        self.debug('Opened file in group %s, index %s (based on saved group %s, index %s): %s' % (group, index, history_entry['group'], history_entry['index'], history_entry['filename']))
+        self.debug('Opened file in group %s, index %s (based on saved group %s, index %s): %s'
+                   % (group, index, history_entry['group'], history_entry['index'], history_entry['filename']))
 
-        # Add the file we just opened to the history and clear the context
-        invoke_async(self.add_view(window, new_view, 'opened'), 0)
         self.__clear_context()
 
     def __close_preview(self, window):
@@ -572,10 +571,18 @@ class FileHistory(with_metaclass(Singleton)):
             return view == window.transient_view_in_group(window.active_group())
 
 
+#######################################
+
+
 class OpenRecentlyClosedFileEvent(sublime_plugin.EventListener):
-    """class to keep a history of the files that have been opened and closed"""
+    # We need pre close to detect if the view was transient,
+    # otherwise it always has (-1, -1) group and index.
     def on_pre_close(self, view):
         FileHistory().add_view(sublime.active_window(), view, 'closed')
+
+    # However, ST2 does not have pre_close (and no transient views either).
+    if is_ST2:
+        on_close = on_pre_close
 
     def on_load(self, view):
         FileHistory().add_view(sublime.active_window(), view, 'opened')
@@ -718,7 +725,11 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
     def get_view_from_another_group(self, selected_entry):
         open_view = self.window.find_open_file(selected_entry['filename'])
         if open_view:
-            calling_group = FileHistory().calling_view_index[0]
+            if FileHistory().calling_view_index:
+                # Not always defined at this point
+                calling_group = FileHistory().calling_view_index[0]
+            else:
+                calling_group = self.window.get_view_index(self.window.active_view())
             preview_group = self.window.get_view_index(open_view)[0]
             if preview_group != calling_group:
                 return open_view
