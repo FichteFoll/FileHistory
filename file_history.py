@@ -560,11 +560,11 @@ class FileHistory(with_metaclass(Singleton)):
             # Sometimes, the view is just `None`. We can't use it in this
             # state so just mark as transient.
             return True
-        elif (-1, -1) == window.get_view_index(view):
-            # If the view index is (-1, -1) then this can't be a real view.
+        elif window.get_view_index(view)[1] == -1:
+            # If the view index is -1, then this can't be a real view.
             # window.transient_view_in_group is not returning the correct
             # value when we quickly cycle through the quick panel previews.
-            self.debug("Detected possibly transient view with (group, index) = (-1, -1): '%s'"
+            self.debug("Detected possibly transient view with index = -1: '%s'"
                        % view.file_name())
             return True
         else:
