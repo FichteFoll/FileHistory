@@ -277,7 +277,7 @@ class FileHistory(with_metaclass(Singleton)):
             return self.history[self.project_name]
         else:
             self.debug('WARN: Project %s could not be found in the file history list - returning an empty history list' % (self.project_name))
-            return []
+            return dict(opened=[], closed=[])
 
     def __ensure_project(self, project_name):
         """Make sure the project nodes exist (including 'opened' and 'closed')"""
@@ -428,7 +428,7 @@ class FileHistory(with_metaclass(Singleton)):
         """Reset the calling view variables"""
         self.calling_view = None
         self.calling_view_index = []
-        self.calling_view_is_empty = True
+        self.calling_view_is_empty = False
 
         self.current_view = None
         self.current_history_entry = None
