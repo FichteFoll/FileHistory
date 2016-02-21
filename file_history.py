@@ -729,7 +729,7 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
                 # Not always defined at this point
                 calling_group = FileHistory().calling_view_index[0]
             else:
-                calling_group = self.window.get_view_index(self.window.active_view())
+                calling_group = self.window.get_view_index(self.window.active_view())[0]
             preview_group = self.window.get_view_index(open_view)[0]
             if preview_group != calling_group:
                 return open_view
