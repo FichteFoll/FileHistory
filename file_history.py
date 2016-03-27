@@ -434,8 +434,6 @@ class FileHistory(with_metaclass(Singleton)):
         self.current_history_entry = None
         self.current_selected_index = -1
 
-        self.project_name = None
-
     def __track_calling_view(self, window):
         """Remember the view that the command was run from (including the group and index positions),
         so we can return to the "calling" view if the user cancels the preview
