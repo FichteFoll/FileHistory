@@ -469,7 +469,7 @@ class FileHistory(with_metaclass(Singleton)):
             index = 0
         return (group, index)
 
-    def preview_history(self, window, selected_index, history_entry):
+    def preview_history(self, window, history_entry):
         """Preview the file if it exists, otherwise show the previous view (aka the "calling_view")"""
         self.current_history_entry = history_entry
 
@@ -604,7 +604,7 @@ class DeleteFileHistoryEntryCommand(sublime_plugin.WindowCommand):
 
         # Deleting an entry from the quick panel should reopen it with the entry removed
         # TODO recover filter text? (I don't think it is possible to get the quick-panel filter text from the API)
-        args = {'refresh_quick_panel': True}
+        args = {'action': "delete_current_entry"}
         sublime.active_window().run_command('open_recently_closed_file', args=args)
 
 
@@ -652,6 +652,29 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
 
         return ", ".join(magnitudes)
 
+    def set_refresh_in_progress(self):
+        self.refresh_in_progress = True
+
+    def clear_refresh_in_progress(self):
+        del self.refresh_in_progress
+
+    def is_refresh_in_progress(self):
+        return hasattr(self, "refresh_in_progress")
+
+    def delete_current_entry(self):
+        if not self.current_selected_index or self.current_selected_index < 0:
+            return
+
+        closed_len = len(self.history_list['closed'])
+        if self.current_selected_index < closed_len:
+            key = 'closed'
+        else:
+            self.current_selected_index -= closed_len
+            key = 'opened'
+
+        if self.current_selected_index <= len(self.history_list[key]):
+            del self.history_list[key][self.current_selected_index]
+
     def get_history_by_index(self, index):
         if index < 0:
             return
@@ -665,15 +688,19 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
         if index <= len(self.history_list[key]):
             return self.history_list[key][index]
 
-    def run(self, show_quick_panel=True, refresh_quick_panel=False, current_project_only=True, selected_index=-1):
-        if refresh_quick_panel and self.__class__.is_active():
-            self.refresh_in_progress = True
-            sublime.active_window().run_command('hide_overlay')
-            return
+    def run(self, current_project_only=True, action="show_history"):
 
-        self.current_project_only = current_project_only
-        self.history_list = FileHistory().get_history(current_project_only)
-        if show_quick_panel:
+        if action == "show_history":
+            self.current_project_only = current_project_only
+
+            if not self.is_refresh_in_progress():
+                self.history_list = FileHistory().get_history(current_project_only)
+                self.current_selected_index = None
+                selected_index = 0
+            else:
+                self.clear_refresh_in_progress()
+                selected_index = self.current_selected_index
+
             # Prepare the display list with the file name and path separated
             display_list = []
             for key in ('closed', 'opened'):
@@ -696,6 +723,10 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
                         info.append((' ' * 6) + stamp)
 
                     display_list.append(info)
+
+            if not display_list:
+                return
+
             font_flag = sublime.MONOSPACE_FONT if FileHistory().USE_MONOSPACE else 0
 
             self.__class__.__is_active = True
@@ -706,8 +737,15 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
                 self.window.show_quick_panel(display_list, self.open_file, font_flag,
                                              on_highlight=self.show_preview,
                                              selected_index=selected_index)
-        else:
+
+        elif action == "open_latest_closed":
             self.open_file(0)
+        elif action == "delete_current_entry":
+            if not self.current_selected_index:
+                return
+            self.delete_current_entry()
+            self.set_refresh_in_progress()
+            sublime.active_window().run_command('hide_overlay')
 
     @classmethod
     def is_active(cls):
@@ -733,6 +771,7 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
 
     def show_preview(self, selected_index):
         # Note: This function will never be called in ST2
+        self.current_selected_index = selected_index
         selected_entry = self.get_history_by_index(selected_index)
         if selected_entry:
             # A bug in SublimeText will cause the quick-panel to unexpectedly close trying to show the preview
@@ -740,7 +779,7 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
             if self.get_view_from_another_group(selected_entry):
                 pass
             else:
-                FileHistory().preview_history(self.window, selected_index, selected_entry)
+                FileHistory().preview_history(self.window, selected_entry)
 
     def open_file(self, selected_index):
         self.__class__.__is_active = False
@@ -757,12 +796,12 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
             # The user cancelled the action
             FileHistory().reset(self.window)
 
-        self.history_list = {}
-
-        if self.refresh_in_progress:
-            self.refresh_in_progress = False
+        if self.is_refresh_in_progress():
             args = {'current_project_only': self.current_project_only}
             sublime.active_window().run_command('open_recently_closed_file', args=args)
+        else:
+            self.history_list = {}
+            self.current_selected_index = None
 
 
 class OpenRecentlyCloseFileCommandContextHandler(sublime_plugin.EventListener):
