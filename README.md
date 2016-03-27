@@ -70,11 +70,11 @@ For this, add a `"file_history"` dictionary to your project's settings and then 
 
 **open_recently_closed_file** (Window)
 
-Opens a popup with recently closed files or reopens the lastly closed view if `show_quick_panel == False`.
+Opens a popup with recently closed files or reopens the lastly closed view if `action == "open_latest_closed"`.
 
 >   *Parameters*
 
->   - **show_quick_panel** (bool) - *Default*: `True`
+>   - **action** (str) - *Default*: `"show_history"`, *Allowed values*: `"show_history"`, `"open_latest_closed"`
 
 >   - **current_project_only** (bool) - *Default*: `True`
 
