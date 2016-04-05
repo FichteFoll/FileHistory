@@ -24,6 +24,9 @@
     // Should we show a preview of the history entries?
     "show_file_preview": true,
 
+    // Re-open a file in the current group if it is already open in another one?
+    "reopen_file_in_current_group": false,
+
     // Remove any non-existent files from the history (when previewed or
     // opened).
     "remove_non_existent_files_on_preview": false,

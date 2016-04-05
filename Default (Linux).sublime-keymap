@@ -1,13 +1,16 @@
 [
-    { "keys": ["ctrl+shift+t"],     "command": "open_recently_closed_file", "args": {"show_quick_panel": false} },
+    { "keys": ["ctrl+shift+t"],     "command": "open_recently_closed_file", "args": {"action": "open_latest_closed"} },
     { "keys": ["ctrl+alt+t"],       "command": "open_recently_closed_file" },
     { "keys": ["ctrl+alt+shift+t"], "command": "open_recently_closed_file", "args": {"current_project_only": false} },
-    { "keys": ["right"], "command": "quick_open_file_history", "context": [
-        { "key": "overlay_visible", "operator": "equal", "operand": true },
-        { "key": "file_history_overlay_visible", "operator": "equal", "operand": true }
+    { "keys": ["right"],            "command": "open_recently_closed_file", "args": {"action": "quick_open_current_entry"},
+      "context": [
+        { "key": "overlay_visible" },
+        { "key": "file_history_overlay_visible" },
+        { "key": "following_text", "operator": "regex_match", "operand": "^$" }
     ]},
-    { "keys": ["ctrl+delete"], "command": "delete_file_history_entry", "context": [
-        { "key": "overlay_visible", "operator": "equal", "operand": true },
-        { "key": "file_history_overlay_visible", "operator": "equal", "operand": true }
+    { "keys": ["ctrl+delete"],      "command": "open_recently_closed_file", "args": {"action": "delete_current_entry"},
+      "context": [
+        { "key": "overlay_visible" },
+        { "key": "file_history_overlay_visible" }
     ]}
 ]
