@@ -59,13 +59,14 @@ class FileHistory(with_metaclass(Singleton)):
         """Load the plugin settings from FileHistory.sublime-settings"""
 
         self.app_settings = sublime.load_settings(self.SETTINGS_FILE)
-        self.__refresh_settings()
+        self.__refresh_settings(True)
 
         # The settings may change during execution so we need to listen for changes
         self.app_settings.add_on_change(self.SETTINGS_CALLBACK_KEY, self.__refresh_settings)
 
-    def __refresh_settings(self):
-        print('[FileHistory] Reloading the settings file "%s".' % (self.SETTINGS_FILE))
+    def __refresh_settings(self, first_load=False):
+        if not first_load:
+            print('[FileHistory] Reloading the settings file "%s".' % (self.SETTINGS_FILE))
 
         self.PRINT_DEBUG = self.__ensure_setting('debug', False)
 
