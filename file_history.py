@@ -119,10 +119,9 @@ class FileHistory(with_metaclass(Singleton)):
 
     def timestamp_from_string(self, timestamp):
         """try with the user-defined timestamp then try the default timestamp."""
-        # Use a set to catch duplicates
-        formats = set((self.TIMESTAMP_FORMAT,
-                       self.DEFAULT_TIMESTAMP_FORMAT,
-                       self.OLD_DEFAULT_TIMESTAMP_FORMAT))
+        formats = (self.TIMESTAMP_FORMAT,
+                   self.DEFAULT_TIMESTAMP_FORMAT,
+                   self.OLD_DEFAULT_TIMESTAMP_FORMAT)
         for format_string in formats:
             try:
                 history_time = time.strptime(timestamp, format_string)
@@ -130,7 +129,7 @@ class FileHistory(with_metaclass(Singleton)):
                 pass
             else:
                 return int(time.mktime(history_time))
-        self.debug('The timestamp "%s" does not match either format "%s"' % (timestamp, formats))
+        self.debug('The timestamp "%s" does not match any of the formats %s' % (timestamp, formats))
 
     def __ensure_setting(self, key, default_value):
         value = default_value
