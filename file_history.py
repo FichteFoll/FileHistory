@@ -737,6 +737,8 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
                 self.window.show_quick_panel(display_list, self.open_file, font_flag,
                                              on_highlight=self.show_preview,
                                              selected_index=selected_index)
+            sublime.status_message("[File History] You can quick-open or remove the currently "
+                                   "selected entry with `right` and `ctrl/cmd+del` respectively.")
 
         elif action == "open_latest_closed":
             self.open_file(0)
