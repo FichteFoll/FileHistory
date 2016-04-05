@@ -2,12 +2,14 @@
     { "keys": ["super+shift+t"],     "command": "open_recently_closed_file", "args": {"action": "open_latest_closed"} },
     { "keys": ["super+alt+t"],       "command": "open_recently_closed_file" },
     { "keys": ["super+alt+shift+t"], "command": "open_recently_closed_file", "args": {"current_project_only": false} },
-    { "keys": ["right"], "command": "quick_open_file_history", "context": [
+    { "keys": ["right"],             "command": "open_recently_closed_file", "args": {"action": "quick_open_current_entry"},
+      "context": [
         { "key": "overlay_visible" },
         { "key": "file_history_overlay_visible" },
         { "key": "following_text", "operator": "regex_match", "operand": "^$" }
     ]},
-    { "keys": ["super+delete"], "command": "delete_file_history_entry", "context": [
+    { "keys": ["super+delete"],      "command": "open_recently_closed_file", "args": {"action": "delete_current_entry"},
+      "context": [
         { "key": "overlay_visible" },
         { "key": "file_history_overlay_visible" }
     ]}
