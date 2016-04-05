@@ -145,15 +145,18 @@ class FileHistory(with_metaclass(Singleton)):
             print('[FileHistory] ' + text)
 
     def get_current_project_key(self):
+        return self.get_project_key(sublime.active_window())
+
+    def get_project_key(self, window):
         m = hashlib.md5()
-        for path in sublime.active_window().folders():
+        for path in window.folders():
             m.update(path.encode('utf-8'))
         project_key = m.hexdigest()
 
         # Try to use project_file_name (available in ST3 build 3014)
         # Note: Although it would be more appropriate, the name of the workspace is not available
-        if hasattr(sublime.active_window(), 'project_file_name'):
-            project_filename = sublime.active_window().project_file_name()
+        if hasattr(window, 'project_file_name'):
+            project_filename = window.project_file_name()
             if not project_filename:
                 return project_key
 
@@ -365,19 +368,25 @@ class FileHistory(with_metaclass(Singleton)):
     def clean_history(self, current_project_only):
         if current_project_only:
             self.__clean_history(self.get_current_project_key())
-        # If requested, also clean-up the global history
         else:
-            # clean all projects and remove any orphaned projects
+            # Clean-up the all histories and remove orphaned projects
             orphan_list = []
+            open_projects = [self.get_project_key(window) for window in sublime.windows()]
             for project_key in self.history:
                 # clean the project or remove it (if it no longer exists)
-                # The ST2 version uses md5 hashes for the project keys, so we can never know if a project is orphaned
-                if not is_ST2 and not project_key == 'global' and not os.path.exists(project_key):
-                    # queue the orphaned project for deletion
-                    orphan_list.append(project_key)
-                else:
+                if (
+                    # The ST2 version always uses md5 hashes for the project keys,
+                    # so we can never know if a project is orphaned.
+                    is_ST2
+                    or project_key == 'global'
+                    or os.path.exists(project_key)
+                    or project_key in open_projects
+                ):
                     # clean the project
                     self.__clean_history(project_key)
+                else:
+                    # queue the orphaned project for deletion
+                    orphan_list.append(project_key)
 
             # remove any orphaned projects and save the history
             for project_key in orphan_list:
