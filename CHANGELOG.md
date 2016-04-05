@@ -1,6 +1,22 @@
 File History Changelog
 ======================
 
+v1.8.0 (2016-04-06)
+-------------------
+
+- Now properly handles situations where the to-be-previewed or -opened file
+  already existed in another group (#23)
+- Added new setting `reopen_file_in_current_group` to control this behavior
+- The parameter for instantly opening the most recently closed file has changed
+  (see README.md if you are affected)
+- Fixed a bug where the panel closed the current file if all files in the panel
+  were currently open (#34) (@lastsecondsave)
+- Fixed various edge cases including races in the preview involving quick-
+  opening or deleting the selected entry (@rahul-ramadas)
+- Only quick-open the selected entry if the caret is at the end of text
+- Don't print "reloading" message during initial load
+- Don't clean anonymous projects on ST3 as long as they remain open
+
 v1.7.1 (2015-01-29)
 -------------------
 
