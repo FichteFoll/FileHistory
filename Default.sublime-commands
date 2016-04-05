@@ -25,18 +25,20 @@
 
     // File History commands
     {
-        "caption": "File History: Open recently closed file (Current Project)",
+        "caption": "File History: Open most recently closed file",
         "command": "open_recently_closed_file",
         "args": {
-            "show_quick_panel": true,
-            "current_project_only": true
+            "action": "open_latest_closed"
         }
     },
     {
-        "caption": "File History: Open recently closed file (All Projects)",
+        "caption": "File History: Open recently closed file… (Current Project)",
+        "command": "open_recently_closed_file"
+    },
+    {
+        "caption": "File History: Open recently closed file… (All Projects)",
         "command": "open_recently_closed_file",
         "args": {
-            "show_quick_panel": true,
             "current_project_only": false
         }
     },
