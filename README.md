@@ -62,7 +62,7 @@ or <kbd>Ctrl/Cmd + Del</kbd>
 to remove the selected file from the history.
 
 For default keymap definitions,
-see [Default.sublime-keymap][keymap] ([OSX][keymap-osx]).
+see [Default (Windows).sublime-keymap][keymap] ([OSX][keymap-osx]).
 
 For the available and default settings,
 see [FileHistory.sublime-settings][].
@@ -134,7 +134,7 @@ Removes all history data.
 
 [FileHistory.sublime-settings]: FileHistory.sublime-settings
 
-[keymap]: Default.sublime-keymap "Default.sublime-keymap"
+[keymap]: Default%20%28Windows%29.sublime-keymap "Default.sublime-keymap"
 [keymap-osx]: Default%20%28OSX%29.sublime-keymap "Default (OSX).sublime-keymap"
 
 [preview-img]: https://cloud.githubusercontent.com/assets/931051/14301433/2178c37c-fb98-11e5-8f70-f2e032d3479f.gif
