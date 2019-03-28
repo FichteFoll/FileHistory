@@ -62,6 +62,9 @@
     // Should the history file be nicely formatted?
     "prettify_history": false,
 
+    // Use the real path, so as to avoid symlink redundancies
+    "real_path": false,
+
     // List of path regexs to exclude from the history tracking.
     // Can be extended in project settings (in a "file_histoy" dict).
     //
@@ -87,5 +90,5 @@
     "max_backup_count": 3,
 
     // Print out debug text?
-    "debug": false
+    "debug": false,
 }
