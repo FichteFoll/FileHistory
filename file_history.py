@@ -742,7 +742,8 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
                             elif bool(FileHistory().TIMESTAMP_RELATIVE):
                                 stamp = '%s ~%s ago' % (action, self.approximate_age(timestamp))
                             else:
-                                stamp = '%s on %s' % (action, time.strftime(self.TIMESTAMP_FORMAT, timestamp))
+                                stamp_str = time.strftime(FileHistory().TIMESTAMP_FORMAT, time.gmtime(timestamp))
+                                stamp = '%s at %s' % (action, stamp_str)
                         info.append((' ' * 6) + stamp)
 
                     display_list.append(info)
