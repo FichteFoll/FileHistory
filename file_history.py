@@ -326,7 +326,7 @@ class FileHistory(with_metaclass(Singleton)):
                 if realname != filename:
                     self.debug("Resolved '%s' to '%s'" % (filename, realname))
                     filename = realname
-            
+
             project_name = self.get_current_project_key()
             if self.is_suppressed(view, filename):
                 # If filename matches 'path_exclude_patterns' then abort the history tracking
