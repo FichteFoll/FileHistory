@@ -1,7 +1,6 @@
 import os
 import hashlib
 import json
-import os
 import time
 import re
 import shutil
@@ -11,20 +10,8 @@ from textwrap import dedent
 import sublime
 import sublime_plugin
 
-is_ST2 = int(sublime.version()) < 3000
 
-invoke_async = sublime.set_timeout if is_ST2 else sublime.set_timeout_async
-
-
-# Use this compat method to create a dummy class
-# that other classes can be subclassed from.
-# This allows specifying a metaclass for both Py2 and Py3 with the same syntax.
-def with_metaclass(meta, *bases):
-    """Create a base class with a metaclass."""
-    return meta("_NewBase", bases or (object,), {})
-
-
-# Metaclass for singletons
+# Metaclass for singletons (TODO refactor)
 class Singleton(type):
     _instance = None
 
@@ -34,7 +21,7 @@ class Singleton(type):
         return cls._instance
 
 
-class FileHistory(with_metaclass(Singleton)):
+class FileHistory(metaclass=Singleton):
 
     SETTINGS_CALLBACK_KEY = 'FileHistory-reload'
     PRINT_DEBUG = False
@@ -50,9 +37,9 @@ class FileHistory(with_metaclass(Singleton)):
         self.__clear_context()
 
         if self.DELETE_ALL_ON_STARTUP:
-            invoke_async(lambda: self.delete_all_history(), 0)
+            sublime.set_timeout_async(lambda: self.delete_all_history(), 0)
         elif self.CLEANUP_ON_STARTUP:
-            invoke_async(lambda: self.clean_history(False), 0)
+            sublime.set_timeout_async(lambda: self.clean_history(False), 0)
 
     def __load_settings(self):
         """Load the plugin settings from FileHistory.sublime-settings"""
@@ -104,8 +91,7 @@ class FileHistory(with_metaclass(Singleton)):
             print('[FileHistory] Invalid timstamp_format string. Falling back to default.')
             self.TIMESTAMP_FORMAT = self.DEFAULT_TIMESTAMP_FORMAT
 
-        # Ignore the file preview setting for ST2
-        self.SHOW_FILE_PREVIEW = False if is_ST2 else self.__ensure_setting('show_file_preview', True)
+        self.SHOW_FILE_PREVIEW = self.__ensure_setting('show_file_preview', True)
 
     def get_history_timestamp(self, history_entry, action):
         timestamp = None
@@ -235,7 +221,7 @@ class FileHistory(with_metaclass(Singleton)):
             json.dump(self.history, f, indent=indent)
             f.flush()
 
-        invoke_async(lambda: self.__manage_backups(), 0)
+        sublime.set_timeout_async(lambda: self.__manage_backups(), 0)
 
     def __manage_backups(self):
         # Only keep backups if the user wants them
@@ -382,10 +368,7 @@ class FileHistory(with_metaclass(Singleton)):
             for project_key in self.history:
                 # clean the project or remove it (if it no longer exists)
                 if (
-                    # The ST2 version always uses md5 hashes for the project keys,
-                    # so we can never know if a project is orphaned.
-                    is_ST2
-                    or project_key == 'global'
+                    project_key == 'global'
                     or os.path.exists(project_key)
                     or project_key in open_projects
                 ):
@@ -478,7 +461,7 @@ class FileHistory(with_metaclass(Singleton)):
         filepath = history_entry['filename']
         if os.path.exists(filepath):
             # asynchronously open the preview (improves perceived performance)
-            invoke_async(lambda: self.__open_preview(window, filepath), 0)
+            sublime.set_timeout_async(lambda: self.__open_preview(window, filepath), 0)
         else:
             # Close the last preview and remove the non-existent file from the history
             self.__close_preview(window)
@@ -569,9 +552,6 @@ class FileHistory(with_metaclass(Singleton)):
         self.__clear_context()
 
     def is_transient_view(self, window, view):
-        if is_ST2:
-            return False
-
         if not view:
             # Sometimes, the view is just `None`. We can't use it in this
             # state so just mark as transient.
@@ -609,10 +589,6 @@ class OpenRecentlyClosedFileEvent(sublime_plugin.EventListener):
     # otherwise it always has (-1, -1) group and index.
     def on_pre_close(self, view):
         FileHistory().add_view(sublime.active_window(), view, 'closed')
-
-    # However, ST2 does not have pre_close (and no transient views either).
-    if is_ST2:
-        on_close = on_pre_close
 
     def on_load(self, view):
         FileHistory().add_view(sublime.active_window(), view, 'opened')
@@ -755,12 +731,9 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
 
             self.__class__.__is_active = True
 
-            if is_ST2:
-                self.window.show_quick_panel(display_list, self.open_file, font_flag)
-            else:
-                self.window.show_quick_panel(display_list, self.open_file, font_flag,
-                                             on_highlight=self.show_preview,
-                                             selected_index=selected_index)
+            self.window.show_quick_panel(display_list, self.open_file, font_flag,
+                                         on_highlight=self.show_preview,
+                                         selected_index=selected_index)
             sublime.status_message("[File History] You can quick-open or remove the currently "
                                    "selected entry with `right` and `ctrl/cmd+del` respectively.")
 
@@ -791,7 +764,6 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
         return cls.__is_active
 
     def show_preview(self, selected_index):
-        # Note: This function will never be called in ST2
         self.current_selected_index = selected_index
         selected_entry = self.get_history_by_index(selected_index)
         if selected_entry:
@@ -824,7 +796,6 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
                 self.window.run_command('open_recently_closed_file', {'current_project_only': self.current_project_only})
                 return
 
-
         self.history_list = {}
 
 
@@ -853,9 +824,3 @@ def plugin_loaded():
 def plugin_unloaded():
     # Unregister our on_change callback
     FileHistory().app_settings.clear_on_change(FileHistory.SETTINGS_CALLBACK_KEY)
-
-# ST2 backwards (and don't call it twice in ST3)
-unload_handler = plugin_unloaded if is_ST2 else lambda: None
-
-if is_ST2:
-    plugin_loaded()
