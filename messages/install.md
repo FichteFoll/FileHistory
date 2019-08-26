@@ -21,5 +21,4 @@ More Information
 ----------------
 
 View more information like images or the exact commands and parameters on the
-github page: https://github.com/FichteFoll/sublimetext-filehistory (or in
-README.md).
+github page: https://github.com/FichteFoll/FileHistory (or in README.md).

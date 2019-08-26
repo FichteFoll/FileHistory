@@ -129,8 +129,8 @@ and removes them from the history.
 Removes all history data.
 
 
-[github]: https://github.com/FichteFoll/sublimetext-filehistory "Github.com: FichteFoll/sublime-filehistory"
-[pck-ctrl]: http://wbond.net/sublime_packages/package_control "Sublime Package Control by wbond"
+[github]: https://github.com/FichteFoll/sublimetext-filehistory "Github.com: FichteFoll/FileHistory"
+[pck-ctrl]: https://packagecontrol.io/installation "Installation - Package Control"
 
 [FileHistory.sublime-settings]: FileHistory.sublime-settings
 
