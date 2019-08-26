@@ -16,8 +16,8 @@ and the ability to open multiple files).
 
 ## Features ##
 
-* Reopen the most recently closed file 
-  or open a quick panel of recently used files 
+* Reopen the most recently closed file
+  or open a quick panel of recently used files
   to choose from
 * Display a preview of the file
   while browsing the quick panel
@@ -31,7 +31,7 @@ and the ability to open multiple files).
   while looking through the file history
   (when previewed or opened)
   or on start-up
-* Creates backups 
+* Creates backups
   in case you lose your history
 * Highly configurable through [FileHistory.sublime-settings][] file,
   like excluding files with regex patterns
@@ -97,7 +97,7 @@ Example:
 
 ### Commands ###
 
-**open_recently_closed_file** (Window)
+**`open_recently_closed_file`** (Window)
 
 Opens a popup with recently closed files
 or reopens the lastly closed view
@@ -112,7 +112,7 @@ if `action == "open_latest_closed"`.
 > - **current_project_only** (bool) -
 >   *Default*: `True`
 
-**cleanup_file_history** (Window)
+**`cleanup_file_history`** (Window)
 
 Checks the current project
 or the whole history
@@ -124,7 +124,7 @@ and removes them from the history.
 >   - **current_project_only** (bool) -
 >     *Default*: `True`
 
-**reset_file_history** (Window)
+**`reset_file_history`** (Window)
 
 Removes all history data.
 
