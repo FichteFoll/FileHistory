@@ -740,7 +740,7 @@ class OpenRecentlyClosedFileCommand(sublime_plugin.WindowCommand):
                             if not timestamp:
                                 stamp = ''
                             elif bool(FileHistory().TIMESTAMP_RELATIVE):
-                                stamp = '%s ~%s ago' % (action, self.approximate_age(timestamp))
+                                stamp = '%s %s ago' % (action, self.approximate_age(timestamp))
                             else:
                                 stamp_str = time.strftime(FileHistory().TIMESTAMP_FORMAT, time.gmtime(timestamp))
                                 stamp = '%s at %s' % (action, stamp_str)
